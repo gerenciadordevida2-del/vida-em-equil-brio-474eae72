@@ -18,3 +18,6 @@
 - Server routes use createFileRoute with server.handlers (the installed TanStack Start has no @tanstack/react-start/api / createAPIFileRoute); the old API breaks the build.
 - Business (Negócio) data lives in the optional `business` field of the same v1 store; pure calculations in src/lib/business.ts use integer cents and record cash only via dated payments — keeps old backups valid, personal finances separate, and avoids double counting.
 - Daily cone stock stores only the day's initial quantity in `business.stock`; sold/remaining are derived from that day's sales (`soldOn`/`stockStatus`), never stored counters — edits and deletes of sales automatically correct the stock.
+
+- Cloud sync (src/lib/cloud-sync.ts): every local change marks a per-user "dirty" flag with its base revision before any network call; pending data is resent only when the cloud is still at that revision, otherwise the user chooses between versions. Why: never overwrite device or cloud data silently.
+- /api/chat must call authorizeChat (session check + consume_chat_quota) before handleChat. Why: the AI key and quota are server-side and visitors must not use them.
