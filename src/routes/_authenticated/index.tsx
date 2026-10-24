@@ -24,6 +24,7 @@ import {
 import { Card } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
 import { dailyScore, toggleHabitDate } from "@/lib/home-metrics";
+import { monthlyFinance } from "@/lib/finance-metrics";
 import { salesDashboard } from "@/lib/commerce";
 import { useData, update, uid, today, brl, fmtDate } from "@/lib/store";
 import { useProfile, displayNameOf, avatarOf } from "@/lib/profile";
@@ -55,9 +56,12 @@ function Index() {
   const fullName = displayNameOf(profile, user);
   const firstName = fullName.split(" ")[0] || "você";
   const avatar = avatarOf(profile, user);
-  const sd = salesDashboard(data.business, today());
   const t = today();
+  const sd = salesDashboard(data.business, t);
   const month = t.slice(0, 7);
+  const { income: inc, expenses: exp, balance, count: monthlyCount } = monthlyFinance(data.transactions, month);
+  const movement = inc + exp;
+  const monthLabel = new Date(`${month}-01T12:00:00`).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
 
   const [showNotifications, setShowNotifications] = useState(false);
   const [task, setTask] = useState("");
@@ -68,17 +72,7 @@ function Index() {
   const [goalSaved, setGoalSaved] = useState("0");
   const [goalDeadline, setGoalDeadline] = useState("");
 
-  const monthTx = data.transactions.filter((x) => x.date.startsWith(month));
-  const inc = monthTx.filter((x) => x.type === "receita").reduce((s, x) => s + x.amount, 0);
-  const exp = monthTx.filter((x) => x.type === "despesa").reduce((s, x) => s + x.amount, 0);
-  const balance = inc - exp;
   const score = dailyScore(data.tasks, data.habits, t);
-  const dailyAmounts = Array.from({ length: 7 }, (_, i) =>
-    monthTx
-      .filter((x) => Math.min(6, Math.floor((Number(x.date.slice(8)) - 1) / 5)) === i)
-      .reduce((sum, x) => sum + x.amount, 0),
-  );
-  const maxAmount = Math.max(1, ...dailyAmounts);
   const upcoming = data.bills
     .filter((b) => !b.paid)
     .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
@@ -196,19 +190,52 @@ function Index() {
           )}
         </section>
       )}
+      <section className="premium-card budget-card mb-4 p-5" aria-label="Panorama financeiro mensal">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="flex items-center gap-2 text-sm font-semibold">
+              <Wallet className="h-4 w-4 shrink-0 text-primary" /> Panorama financeiro mensal
+            </h2>
+            <p className="mt-1 text-[11px] capitalize text-muted-foreground">Pessoal · {monthLabel}</p>
+          </div>
+          <Button asChild variant="ghost" size="icon" className="shrink-0 rounded-full">
+            <Link to="/financas" aria-label="Ver finanças pessoais"><ArrowUpRight /></Link>
+          </Button>
+        </div>
+        <p className="mt-3 text-xs text-muted-foreground">Saldo atual do mês</p>
+        <p className={`mt-1 break-words font-display text-3xl font-semibold tabular-nums ${balance < 0 ? "text-destructive" : balance > 0 ? "text-success" : "text-foreground"}`}>{brl(balance)}</p>
+        <div className="mt-4 grid grid-cols-2 gap-4 border-t border-glass-border pt-3">
+          <div className="min-w-0">
+            <p className="mb-1 flex items-center gap-1.5 text-[11px] text-muted-foreground"><ArrowUpRight className="h-4 w-4 shrink-0 text-success" /> Receitas pessoais</p>
+            <p className="break-words text-base font-semibold tabular-nums text-success">{brl(inc)}</p>
+          </div>
+          <div className="min-w-0 border-l border-glass-border pl-4">
+            <p className="mb-1 flex items-center gap-1.5 text-[11px] text-muted-foreground"><ArrowDownRight className="h-4 w-4 shrink-0 text-destructive" /> Despesas pessoais</p>
+            <p className="break-words text-base font-semibold tabular-nums text-destructive">{brl(exp)}</p>
+          </div>
+        </div>
+        <div className="mt-3 flex h-1.5 w-full overflow-hidden rounded-full bg-secondary" role="img" aria-label={`Receitas ${brl(inc)}, despesas ${brl(exp)}, saldo ${brl(balance)}`}>
+          {movement > 0 && <>
+            <span className="h-full bg-success" style={{ width: `${(inc / movement) * 100}%` }} />
+            <span className="h-full bg-destructive" style={{ width: `${(exp / movement) * 100}%` }} />
+          </>}
+        </div>
+        <p className="mt-2 text-[11px] text-muted-foreground">{monthlyCount === 0 ? "Nenhum lançamento pessoal neste mês." : balance > 0 ? "Receitas acima das despesas" : balance < 0 ? "Despesas acima das receitas" : "Receitas e despesas em equilíbrio"}</p>
+      </section>
       <section
         className="premium-card budget-card relative mb-4 overflow-hidden p-5"
         aria-label="Resumo de vendas"
       >
         <div className="flex items-center justify-between">
-          <p className="text-xs text-muted-foreground">Faturamento de hoje</p>
+          <h2 className="text-sm font-semibold">Vendas do negócio</h2>
           <span className="rounded-full border border-glass-border px-2.5 py-1 text-[10px] text-accent-foreground">
             {sd.todayCount} venda(s)
           </span>
         </div>
+        <p className="mt-3 text-xs text-muted-foreground">Faturamento de hoje</p>
         <p className="mt-2 break-words font-display text-3xl font-semibold">{brl(sd.todayRevenue)}</p>
         <div className="mt-5 grid grid-cols-2 gap-4 border-t border-glass-border pt-4">
-          <div>
+          <div className="min-w-0">
             <p className="mb-1 flex items-center gap-1.5 text-[11px] text-muted-foreground">
               <ArrowUpRight className="h-4 w-4 text-success" />
               Faturamento do mês
@@ -217,7 +244,7 @@ function Index() {
             <p className="text-[11px] text-muted-foreground">{sd.monthCount} venda(s){sd.ticket !== null ? ` · ticket ${brl(sd.ticket)}` : ""}</p>
             <p className="text-[11px] text-muted-foreground">Recebido no mês: {brl(sd.monthReceived)}</p>
           </div>
-          <div className="border-l border-glass-border pl-4">
+          <div className="min-w-0 border-l border-glass-border pl-4">
             <p className="mb-1 flex items-center gap-1.5 text-[11px] text-muted-foreground">
               <ArrowDownRight className="h-4 w-4 text-warning" />
               A receber
@@ -226,11 +253,9 @@ function Index() {
             {sd.overdue > 0 && <p className="text-[11px] text-destructive">{brl(sd.overdue)} em atraso</p>}
           </div>
         </div>
-        <p className="mt-3 text-[11px] text-muted-foreground">
-          {sd.monthProfit === null
-            ? "Lucro estimado: informe o custo dos produtos para calcular."
-            : `Lucro estimado no mês: ${brl(sd.monthProfit)}${sd.profitPartial ? " (parcial: há vendas sem custo)" : ""}`}
-        </p>
+        {sd.monthProfit !== null && !sd.profitPartial && (
+          <p className="mt-3 text-[11px] text-muted-foreground">Lucro estimado no mês: {brl(sd.monthProfit)}</p>
+        )}
         <Button asChild variant="link" className="mt-3 h-auto p-0 text-[11px]">
           <Link to="/financas">
             Ver painel do negócio <ArrowRight />
