@@ -52,7 +52,22 @@ export type StockMove = {
   saleId?: string | undefined;
 };
 
-export type ReminderLog = { id: string; saleId: string; dueDate: string; sentAt: string; channel: "whatsapp-manual" };
+/** Delivery state of a reminder. Opening WhatsApp only means "conversa_aberta": the app cannot
+ * know whether the user actually sent it. "enviado"/"falhou" are reserved for provider-confirmed
+ * results (official WhatsApp Business API), which this app does not use yet.
+ * Old records without `status` were created by opening WhatsApp, so they read as "conversa_aberta". */
+export type ReminderStatus = "mensagem_preparada" | "conversa_aberta" | "enviado" | "falhou" | "cancelado";
+export type ReminderLog = {
+  id: string;
+  saleId: string;
+  dueDate: string;
+  sentAt: string; // date the action happened (kept for compatibility with older records)
+  channel: "whatsapp-manual";
+  status?: ReminderStatus | undefined;
+  amount?: number | undefined; // open balance included in the message
+  error?: string | undefined;
+};
+export const reminderStatus = (r: ReminderLog): ReminderStatus => r.status ?? "conversa_aberta";
 
 export type BizExpense = {
   id: string;

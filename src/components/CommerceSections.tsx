@@ -34,7 +34,9 @@ export function WhatsAppButton({ sale }: { sale: Sale }) {
   const cust = (data.business.customers ?? []).find((c) => c.id === sale.customerId);
   const open = remaining(saleTotal(sale), sale);
   if (sale.status || open <= 0) return null;
-  const sentToday = (data.business.reminders ?? []).some((r) => r.saleId === sale.id && r.sentAt === today());
+  const openedToday = (data.business.reminders ?? []).some(
+    (r) => r.saleId === sale.id && r.sentAt === today() && reminderStatus(r) === "conversa_aberta",
+  );
   const link = whatsappLink(
     cust?.phone,
     reminderMessage(sale.customer, sale.product, brl(open), sale.expectedDate ? fmtDate(sale.expectedDate) : undefined),
@@ -43,18 +45,30 @@ export function WhatsAppButton({ sale }: { sale: Sale }) {
     <button
       type="button"
       className="flex items-center gap-1 text-xs font-semibold text-success disabled:opacity-50"
+      title="Abre o WhatsApp com a mensagem pronta. O envio é feito por você no WhatsApp."
       onClick={() => {
         if (!link) return void toast.error("Cadastre o telefone do cliente para lembrar pelo WhatsApp.");
-        if (sentToday && !confirm("Você já abriu um lembrete desta venda hoje. Abrir de novo?")) return;
+        if (openedToday && !confirm("Você já abriu uma conversa de lembrete desta venda hoje. Abrir de novo?")) return;
         window.open(link, "_blank", "noopener");
-        if (!sentToday)
+        if (!openedToday)
           setBiz((b) => ({
             ...b,
-            reminders: [...(b.reminders ?? []), { id: uid(), saleId: sale.id, dueDate: sale.expectedDate ?? "", sentAt: today(), channel: "whatsapp-manual" }],
+            reminders: [
+              ...(b.reminders ?? []),
+              {
+                id: uid(),
+                saleId: sale.id,
+                dueDate: sale.expectedDate ?? "",
+                sentAt: today(),
+                channel: "whatsapp-manual",
+                status: "conversa_aberta",
+                amount: open,
+              },
+            ],
           }));
       }}
     >
-      <MessageCircle className="h-4 w-4" /> {sentToday ? "Lembrado hoje" : "WhatsApp"}
+      <MessageCircle className="h-4 w-4" /> {openedToday ? "Conversa aberta hoje" : "WhatsApp"}
     </button>
   );
 }
