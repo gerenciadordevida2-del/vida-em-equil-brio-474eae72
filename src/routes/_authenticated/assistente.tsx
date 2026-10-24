@@ -13,6 +13,7 @@ import { Bot, Send, Square, Check, X, Loader2, RotateCcw } from "lucide-react";
 import { Page, Card } from "@/components/AppShell";
 import { useData, today } from "@/lib/store";
 import { prepareAction, buildSnapshot } from "@/lib/ai-actions";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_authenticated/assistente")({
   head: () => ({

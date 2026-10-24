@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { lovable } from "@/integrations/lovable";
 import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/auth")({
@@ -11,6 +12,8 @@ export const Route = createFileRoute("/auth")({
       { name: "description", content: "Entre com sua conta Google para acessar seus dados." },
       { property: "og:title", content: "Entrar — Gerenciador de Vida" },
       { property: "og:description", content: "Entre com sua conta Google para acessar seus dados." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: AuthPage,
@@ -22,8 +25,13 @@ function AuthPage() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) navigate({ to: "/", replace: true });
+    // Erros devolvidos pelo provedor na URL de retorno (ex.: acesso negado).
+    const params = new URLSearchParams(window.location.search + window.location.hash.replace(/^#/, "&"));
+    const providerError = params.get("error_description") ?? params.get("error");
+    if (providerError) setError(`Não foi possível entrar: ${providerError}`);
+
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user) navigate({ to: "/", replace: true });
     });
     const { data } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_IN" && session) navigate({ to: "/", replace: true });
@@ -34,17 +42,21 @@ function AuthPage() {
   async function signIn() {
     setBusy(true);
     setError(null);
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: `${window.location.origin}/auth` },
-    });
-    if (error) {
+    try {
+      const result = await lovable.auth.signInWithOAuth("google", {
+        redirect_uri: `${window.location.origin}/auth`,
+        extraParams: { prompt: "select_account" },
+      });
+      if (result.error) {
+        setBusy(false);
+        setError(`Não foi possível entrar com o Google: ${result.error.message ?? "tente novamente."}`);
+        return;
+      }
+      if (result.redirected) return;
+      navigate({ to: "/", replace: true });
+    } catch (e) {
       setBusy(false);
-      setError(
-        error.message.includes("not enabled")
-          ? "O login com Google ainda não foi ativado no Supabase."
-          : `Não foi possível entrar: ${error.message}`,
-      );
+      setError(e instanceof Error ? `Não foi possível entrar: ${e.message}` : "Falha de conexão. Tente novamente.");
     }
   }
 
