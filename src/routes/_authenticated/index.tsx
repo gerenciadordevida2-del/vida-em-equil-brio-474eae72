@@ -215,6 +215,7 @@ function Index() {
             </p>
             <p className="break-words text-base font-semibold">{brl(sd.monthRevenue)}</p>
             <p className="text-[11px] text-muted-foreground">{sd.monthCount} venda(s){sd.ticket !== null ? ` · ticket ${brl(sd.ticket)}` : ""}</p>
+            <p className="text-[11px] text-muted-foreground">Recebido no mês: {brl(sd.monthReceived)}</p>
           </div>
           <div className="border-l border-glass-border pl-4">
             <p className="mb-1 flex items-center gap-1.5 text-[11px] text-muted-foreground">
