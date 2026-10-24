@@ -286,7 +286,7 @@ export async function handleChat(request: Request): Promise<Response> {
 
   try {
     const result = streamText({
-      model: groq.chat(GROQ_MODEL),
+      model: groq.chat(GROQ_MODEL) as unknown as Parameters<typeof streamText>[0]["model"], // duplicate @ai-sdk/provider copies in node_modules; same runtime shape
       instructions,
       messages: await convertToModelMessages(messages),
       tools,
