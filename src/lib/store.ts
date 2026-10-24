@@ -241,6 +241,19 @@ export function readLegacyLocal(): AppData | null {
   }
 }
 
+/** Reads this device's cached copy of a signed-in user's data (written on every change). */
+export function readLocalCopy(userId: string): AppData | null {
+  try {
+    const raw = localStorage.getItem(`${KEY}:user:${userId}`);
+    if (!raw) return null;
+    const parsed: unknown = JSON.parse(raw);
+    if (!backupSchema.safeParse(parsed).success) return null;
+    return normalizeData(parsed as Partial<AppData>);
+  } catch {
+    return null;
+  }
+}
+
 export const LEGACY_KEY = KEY;
 export const emptyData = (): AppData => normalizeData(null);
 
