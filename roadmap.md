@@ -20,3 +20,5 @@
 - [ ] Google, perfis, rotas privadas e dados isolados; preservar backup local legado.
 - [ ] Lembretes individuais pelo WhatsApp; automação somente com integração oficial.
 - [ ] Testar regras, persistência, isolamento e navegação móvel; relatar bloqueios reais.
+- [ ] Integrar panorama financeiro pessoal mensal acima das vendas na Home, preservando dados e visual.
+- [ ] Validar totais compartilhados, custos suficientes e cartões em celular com usuário autenticado.
