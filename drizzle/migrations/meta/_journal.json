@@ -8,6 +8,13 @@
       "when": 1792811737017,
       "tag": "0000_profiles_app_data",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792811782163,
+      "tag": "0001_chat_quota_and_save_validation",
+      "breakpoints": true
     }
   ]
 }

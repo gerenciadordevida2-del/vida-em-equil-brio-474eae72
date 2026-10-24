@@ -43,6 +43,32 @@ export type Database = {
           },
         ]
       }
+      chat_usage: {
+        Row: {
+          count: number
+          user_id: string
+          window_start: string
+        }
+        Insert: {
+          count?: number
+          user_id: string
+          window_start: string
+        }
+        Update: {
+          count?: number
+          user_id?: string
+          window_start?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_usage_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -72,6 +98,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      consume_chat_quota: {
+        Args: { max_per_day?: number; max_per_minute?: number }
+        Returns: boolean
+      }
       save_app_data: {
         Args: { expected_revision: number; payload: Json }
         Returns: number
