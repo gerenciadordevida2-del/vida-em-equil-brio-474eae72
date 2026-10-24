@@ -78,16 +78,6 @@ function Ajustes() {
             Salvar
           </button>
         </form>
-        <label className="flex items-center justify-between text-sm">
-          Lembretes de vencimento no aparelho
-          <input
-            type="checkbox"
-            checked={profile?.preferences?.["notifications"] !== false}
-            onChange={(e) =>
-              updateProfile.mutate({ preferences: { ...(profile?.preferences ?? {}), notifications: e.target.checked } })
-            }
-          />
-        </label>
         <button onClick={signOut} className={`${btn} border bg-secondary`}>
           <LogOut className="h-5 w-5" /> Sair
         </button>

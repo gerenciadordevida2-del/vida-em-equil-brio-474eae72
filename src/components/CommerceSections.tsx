@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { money, roundMoney } from "@/lib/data-validation";
 import { brl, fmtDate, today, uid, update, useData } from "@/lib/store";
-import { remaining, saleTotal, type BusinessData, type Customer, type Product, type Sale } from "@/lib/business";
+import { remaining, reminderStatus, saleTotal, type BusinessData, type Customer, type Product, type Sale } from "@/lib/business";
 import {
   customerSummary, lowStock, normName, reminderMessage, revenueSeries, topProducts,
   upsertCustomer, upsertProduct, whatsappLink,
