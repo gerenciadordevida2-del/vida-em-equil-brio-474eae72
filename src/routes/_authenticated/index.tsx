@@ -26,6 +26,7 @@ import { Button } from "@/components/ui/button";
 import { dailyScore, toggleHabitDate } from "@/lib/home-metrics";
 import { salesDashboard } from "@/lib/commerce";
 import { useData, update, uid, today, brl, fmtDate } from "@/lib/store";
+import { useProfile, displayNameOf, avatarOf } from "@/lib/profile";
 
 export const Route = createFileRoute("/_authenticated/")({
   head: () => ({
@@ -50,9 +51,10 @@ export const Route = createFileRoute("/_authenticated/")({
 function Index() {
   const data = useData();
   const { user } = Route.useRouteContext();
-  const meta = user.user_metadata as { full_name?: string; name?: string } | undefined;
-  const fullName = meta?.full_name || meta?.name || user.email?.split("@")[0] || "";
+  const { data: profile } = useProfile(user);
+  const fullName = displayNameOf(profile, user);
   const firstName = fullName.split(" ")[0] || "você";
+  const avatar = avatarOf(profile, user);
   const sd = salesDashboard(data.business, today());
   const t = today();
   const month = t.slice(0, 7);
@@ -145,8 +147,12 @@ function Index() {
             variant="ghost"
             className="h-12 w-12 shrink-0 rounded-full border border-primary/25 bg-accent p-0 font-display text-lg text-primary"
           >
-            <Link to="/ajustes" aria-label="Perfil e ajustes">
-              {firstName.charAt(0).toUpperCase()}
+            <Link to="/ajustes" aria-label="Perfil e ajustes" className="overflow-hidden">
+              {avatar ? (
+                <img src={avatar} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+              ) : (
+                firstName.charAt(0).toUpperCase()
+              )}
             </Link>
           </Button>
           <div className="min-w-0">

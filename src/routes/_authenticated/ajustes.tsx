@@ -6,6 +6,7 @@ import { Download, Upload, Trash2, Smartphone, LogOut } from "lucide-react";
 import { toast } from "sonner";
 import { Page, Card } from "@/components/AppShell";
 import { exportBackup, importBackup, clearAll } from "@/lib/store";
+import { useProfile, useUpdateProfile, displayNameOf, avatarOf } from "@/lib/profile";
 
 export const Route = createFileRoute("/_authenticated/ajustes")({
   head: () => ({
@@ -26,6 +27,10 @@ function Ajustes() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user } = Route.useRouteContext();
+  const { data: profile } = useProfile(user);
+  const updateProfile = useUpdateProfile(user.id);
+  const currentName = displayNameOf(profile, user);
+  const avatar = avatarOf(profile, user);
   async function signOut() {
     await queryClient.cancelQueries();
     queryClient.clear();
@@ -37,7 +42,52 @@ function Ajustes() {
     <Page title="Ajustes" subtitle="Seus dados ficam salvos na sua conta">
       <Card className="mb-4 space-y-3">
         <h2 className="font-semibold">Conta</h2>
-        <p className="text-sm text-muted-foreground">Conectado como {user.email}</p>
+        <div className="flex items-center gap-3">
+          {avatar ? (
+            <img src={avatar} alt="" referrerPolicy="no-referrer" className="h-12 w-12 rounded-full object-cover" />
+          ) : (
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-accent font-semibold text-primary">
+              {(currentName || "?").charAt(0).toUpperCase()}
+            </div>
+          )}
+          <p className="min-w-0 truncate text-sm text-muted-foreground">Conectado como {user.email}</p>
+        </div>
+        <form
+          className="flex gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            const value = String(new FormData(e.currentTarget).get("name") ?? "");
+            updateProfile.mutate(
+              { display_name: value },
+              {
+                onSuccess: () => toast.success("Nome atualizado!"),
+                onError: (err) => toast.error(err instanceof Error ? err.message : "Não foi possível salvar."),
+              },
+            );
+          }}
+        >
+          <input
+            key={currentName}
+            name="name"
+            defaultValue={currentName}
+            maxLength={80}
+            aria-label="Nome de exibição"
+            className="h-12 min-w-0 flex-1 rounded-xl border bg-background px-3"
+          />
+          <button disabled={updateProfile.isPending} className="h-12 rounded-xl bg-primary px-4 font-semibold text-primary-foreground">
+            Salvar
+          </button>
+        </form>
+        <label className="flex items-center justify-between text-sm">
+          Lembretes de vencimento no aparelho
+          <input
+            type="checkbox"
+            checked={profile?.preferences?.["notifications"] !== false}
+            onChange={(e) =>
+              updateProfile.mutate({ preferences: { ...(profile?.preferences ?? {}), notifications: e.target.checked } })
+            }
+          />
+        </label>
         <button onClick={signOut} className={`${btn} border bg-secondary`}>
           <LogOut className="h-5 w-5" /> Sair
         </button>
