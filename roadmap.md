@@ -1,0 +1,22 @@
+- [x] Atualizar o modelo padrão Gemini e verificar testes.
+- [x] Renovar a barra inferior flutuante, com acesso à IA à direita.
+- [x] Renovar a Home com saldo, assistente, hábitos interativos e vencimentos.
+- [x] Verificar interação, persistência e apresentação em celular.
+- [x] Auditar configurações, dependências, rotas e erros de carregamento.
+- [x] Corrigir problemas comprovados de dados, backups e validação da IA.
+- [x] Validar os fluxos principais e apresentar relatório com limitações reais.
+- [x] Migrar o Assistente para Groq llama-3.3-70b-versatile com GROQ_API_KEY, mantendo streaming e confirmação; testes locais aprovados.
+- [x] Validar resposta e confirmação reais da Groq: modelo trocado para openai/gpt-oss-120b (a chave não tinha acesso ao llama-3.3-70b-versatile); teste real pediu o cartão de confirmação antes de salvar.
+- [x] Renomear a chave do assistente para GERENCIADOR_DE_VIDA_API_KEY e apagar a chave Gemini sem uso.
+- [ ] Verificar deployment Vercel: depende de acesso à configuração externa.
+- [x] Reinspecionar o projeto e executar diagnóstico não destrutivo da nova auditoria.
+- [x] Aplicar correções localizadas aprovadas, sem trocar o modelo ou alterar armazenamento e visual.
+- [x] Validar regressões de pagamento, backup, leitura dos módulos e atualizar relatório com limites reais.
+- [ ] Verificar vínculo e branch oficiais do GitHub e proteção compartilhada da Vercel: depende de acesso externo.
+- [ ] Reavaliar segurança com análise profunda recente: depende de nova análise na aba Segurança.
+- [x] Aba Negócio em Finanças (vendas, agendados, gastos, painel, gráfico)
+- [ ] Integrar clientes, produtos, estoque e cancelamento sem duplicar registros.
+- [ ] Atualizar indicadores comerciais e gráficos com dados reais.
+- [ ] Google, perfis, rotas privadas e dados isolados; preservar backup local legado.
+- [ ] Lembretes individuais pelo WhatsApp; automação somente com integração oficial.
+- [ ] Testar regras, persistência, isolamento e navegação móvel; relatar bloqueios reais.
