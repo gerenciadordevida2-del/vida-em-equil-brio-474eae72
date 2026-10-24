@@ -4,6 +4,7 @@ import { Plus, Trash2, Check, Target, PiggyBank, TrendingUp, Pencil } from "luci
 import { Button } from "@/components/ui/button";
 import { money, roundMoney } from "@/lib/data-validation";
 import { recordDebtPayment } from "@/lib/debt-payment";
+import { monthlyFinance } from "@/lib/finance-metrics";
 import type { FinanceGoal } from "@/lib/store";
 import { Page, Card } from "@/components/AppShell";
 import { BusinessTab } from "@/components/BusinessTab";
@@ -58,8 +59,7 @@ export function Financas({
   const tx = data.transactions
     .filter((x) => x.date.startsWith(filterMonth))
     .sort((a, b) => b.date.localeCompare(a.date));
-  const inc = tx.filter((x) => x.type === "receita").reduce((s, x) => s + x.amount, 0);
-  const exp = tx.filter((x) => x.type === "despesa").reduce((s, x) => s + x.amount, 0);
+  const { income: inc, expenses: exp, balance } = monthlyFinance(data.transactions, filterMonth);
   const byCat = Object.entries(
     tx
       .filter((x) => x.type === "despesa")
@@ -133,7 +133,7 @@ export function Financas({
             </Card>
             <Card className="p-3">
               <p className="text-xs text-muted-foreground">Saldo</p>
-              <p className="text-sm font-semibold">{brl(inc - exp)}</p>
+              <p className="text-sm font-semibold">{brl(balance)}</p>
             </Card>
           </div>
           {byCat.length > 0 && (
