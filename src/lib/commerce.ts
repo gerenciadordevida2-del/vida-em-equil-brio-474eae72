@@ -24,6 +24,16 @@ export const normName = (s: string) =>
   s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase().replace(/\s+/g, " ");
 export const normPhone = (s: string | undefined) => (s ?? "").replace(/\D/g, "");
 
+/** Comparable Brazilian phone: digits without country code (55) or trunk zero, so
+ * "+55 (11) 99999-8888", "011 99999-8888" and "11999998888" match. Numbers that differ in
+ * any national digit stay different, so distinct people are never merged. */
+export function phoneKey(s: string | undefined): string {
+  let p = normPhone(s);
+  if (p.length >= 12 && p.startsWith("55")) p = p.slice(2);
+  else if (p.length >= 11 && p.startsWith("0")) p = p.replace(/^0+/, "");
+  return p;
+}
+
 /** Finds an existing (non-archived) customer with the same phone, or same name when no phone. */
 export function findDuplicateCustomer(
   customers: Customer[],
@@ -31,13 +41,13 @@ export function findDuplicateCustomer(
   phone: string | undefined,
   ignoreId?: string,
 ): Customer | undefined {
-  const p = normPhone(phone);
+  const p = phoneKey(phone);
   const n = normName(name);
   return customers.find(
     (x) =>
       x.id !== ignoreId &&
       !x.archived &&
-      ((p.length >= 8 && normPhone(x.phone) === p) || (!p && normName(x.name) === n)),
+      ((p.length >= 8 && phoneKey(x.phone) === p) || (!p && normName(x.name) === n)),
   );
 }
 
