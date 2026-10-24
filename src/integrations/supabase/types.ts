@@ -14,13 +14,68 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      app_data: {
+        Row: {
+          data: Json
+          revision: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          data: Json
+          revision?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          data?: Json
+          revision?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "app_data_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          display_name: string
+          id: string
+          preferences: Json
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string
+          id: string
+          preferences?: Json
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string
+          id?: string
+          preferences?: Json
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      save_app_data: {
+        Args: { expected_revision: number; payload: Json }
+        Returns: number
+      }
     }
     Enums: {
       [_ in never]: never

@@ -1,0 +1,17 @@
+CREATE TABLE public.profiles (id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE, display_name text NOT NULL DEFAULT '', avatar_url text, preferences jsonb NOT NULL DEFAULT '{}', created_at timestamptz NOT NULL DEFAULT now());
+GRANT SELECT, INSERT, UPDATE ON public.profiles TO authenticated;
+GRANT ALL ON public.profiles TO service_role;
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+CREATE POLICY own_profile ON public.profiles FOR ALL TO authenticated USING (id = auth.uid()) WITH CHECK (id = auth.uid());
+CREATE FUNCTION public.create_user_profile() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$ BEGIN INSERT INTO public.profiles(id, display_name, avatar_url) VALUES(NEW.id, COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.raw_user_meta_data->>'name', ''), NEW.raw_user_meta_data->>'avatar_url') ON CONFLICT DO NOTHING; RETURN NEW; END $$;
+REVOKE ALL ON FUNCTION public.create_user_profile() FROM PUBLIC, anon, authenticated;
+CREATE TRIGGER create_profile_after_signup AFTER INSERT ON auth.users FOR EACH ROW EXECUTE FUNCTION public.create_user_profile();
+INSERT INTO public.profiles(id, display_name, avatar_url) SELECT id, COALESCE(raw_user_meta_data->>'full_name', raw_user_meta_data->>'name', ''), raw_user_meta_data->>'avatar_url' FROM auth.users ON CONFLICT DO NOTHING;
+CREATE TABLE public.app_data (user_id uuid PRIMARY KEY REFERENCES public.profiles(id) ON DELETE CASCADE, data jsonb NOT NULL, revision bigint NOT NULL DEFAULT 1, updated_at timestamptz NOT NULL DEFAULT now());
+GRANT SELECT, INSERT, UPDATE ON public.app_data TO authenticated;
+GRANT ALL ON public.app_data TO service_role;
+ALTER TABLE public.app_data ENABLE ROW LEVEL SECURITY;
+CREATE POLICY own_app_data ON public.app_data FOR ALL TO authenticated USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+CREATE FUNCTION public.save_app_data(payload jsonb, expected_revision bigint) RETURNS bigint LANGUAGE plpgsql SET search_path = public AS $$ DECLARE result bigint; BEGIN IF auth.uid() IS NULL THEN RAISE EXCEPTION 'Unauthorized'; END IF; IF payload->>'version' IS DISTINCT FROM '1' OR jsonb_typeof(payload->'transactions') IS DISTINCT FROM 'array' THEN RAISE EXCEPTION 'Invalid payload'; END IF; INSERT INTO public.profiles(id) VALUES (auth.uid()) ON CONFLICT DO NOTHING; IF expected_revision = 0 THEN INSERT INTO public.app_data(user_id,data) VALUES(auth.uid(),payload) ON CONFLICT DO NOTHING RETURNING revision INTO result; ELSE UPDATE public.app_data SET data=payload, revision=revision+1,updated_at=now() WHERE user_id=auth.uid() AND revision=expected_revision RETURNING revision INTO result; END IF; IF result IS NULL THEN RAISE EXCEPTION 'Dados alterados em outro aparelho. Recarregue antes de continuar.'; END IF; RETURN result; END $$;
+REVOKE ALL ON FUNCTION public.save_app_data(jsonb,bigint) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.save_app_data(jsonb,bigint) TO authenticated;
