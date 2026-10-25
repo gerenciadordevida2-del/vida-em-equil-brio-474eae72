@@ -52,3 +52,27 @@ describe("painel", () => {
   });
   it("link do WhatsApp com DDI", () => expect(whatsappLink("(11) 98888-7777", "oi")).toBe("https://wa.me/5511988887777?text=oi"));
 });
+
+describe("vendas para o mesmo cliente", () => {
+  it("duas vendas somam no histórico e no saldo, sem novo cadastro", () => {
+    let b = saveSale(base(), sale({ payments: [{ date: "2026-10-20", amount: 8 }] }), "d");
+    b = saveSale(b, sale({ id: "s2", quantity: 1, date: "2026-10-22" }), "d");
+    const s = customerSummary(b, "c1");
+    expect(b.customers).toHaveLength(1);
+    expect(s.sales).toHaveLength(2);
+    expect([s.total, s.paid, s.pending]).toEqual([30, 8, 22]);
+  });
+  it("saldo pendente só conta o que está em aberto", () => {
+    const b = saveSale(base(), sale({ payments: [{ date: "2026-10-20", amount: 20 }] }), "d");
+    const s = customerSummary(b, "c1");
+    expect([s.total, s.paid, s.pending]).toEqual([20, 20, 0]);
+  });
+  it("cancelar uma venda recalcula sem somar de novo", () => {
+    let b = saveSale(base(), sale(), "d");
+    b = saveSale(b, sale({ id: "s2", quantity: 1 }), "d");
+    b = changeSaleStatus(b, "s2", "cancelada", "d");
+    const s = customerSummary(b, "c1");
+    expect(s.sales).toHaveLength(2);
+    expect([s.total, s.pending]).toEqual([20, 20]);
+  });
+});
