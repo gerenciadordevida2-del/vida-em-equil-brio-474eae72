@@ -280,15 +280,41 @@ export function Financas({
       )}
 
       {tab === "contas" && (
-        <Card>
-          {data.bills.length === 0 && (
-            <p className="text-sm text-muted-foreground">Nenhuma conta cadastrada.</p>
+        <>
+          {(liabilities.pendingBills > 0 || liabilities.overdueBills > 0) && (
+            <Card className="mb-4">
+              <h2 className="mb-2 font-semibold">Passivo em aberto</h2>
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div>
+                  <p className="text-xs text-muted-foreground">A vencer</p>
+                  <p className="text-sm font-semibold">{brl(liabilities.pendingBills)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Vencido</p>
+                  <p className="text-sm font-semibold text-destructive">
+                    {brl(liabilities.overdueBills)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Passivo total</p>
+                  <p className="text-sm font-semibold">{brl(liabilities.total)}</p>
+                </div>
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Contas que passam do vencimento entram no passivo automaticamente, sem duplicar
+                lançamentos.
+              </p>
+            </Card>
           )}
-          <ul className="divide-y">
-            {[...data.bills]
-              .sort((a, b) => Number(a.paid) - Number(b.paid) || a.dueDate.localeCompare(b.dueDate))
-              .map((b) => {
-                const late = !b.paid && b.dueDate < today();
+          <Card>
+            {data.bills.length === 0 && (
+              <p className="text-sm text-muted-foreground">Nenhuma conta cadastrada.</p>
+            )}
+            <ul className="divide-y">
+              {[...data.bills]
+                .sort((a, b) => Number(a.paid) - Number(b.paid) || a.dueDate.localeCompare(b.dueDate))
+                .map((b) => {
+                  const status = billStatus(b, today());
                 return (
                   <li key={b.id} className="flex items-center gap-3 py-3">
                     <button
