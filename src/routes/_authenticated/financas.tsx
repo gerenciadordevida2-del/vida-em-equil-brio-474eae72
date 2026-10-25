@@ -151,6 +151,48 @@ export function Financas({
             onChange={(e) => setFilterMonth(e.target.value || month)}
             className={`${field} mb-3`}
           />
+          <div className="relative mb-2">
+            <Search className="absolute left-3 top-3.5 h-5 w-5 text-muted-foreground" />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Pesquisar lançamentos"
+              aria-label="Pesquisar lançamentos"
+              className={`${field} pl-10`}
+            />
+          </div>
+          <div className="mb-4 grid grid-cols-3 gap-2">
+            <select
+              value={filterType}
+              onChange={(e) => setFilterType(e.target.value as typeof filterType)}
+              aria-label="Filtrar por tipo"
+              className={field}
+            >
+              <option value="todos">Todos</option>
+              <option value="receita">Receitas</option>
+              <option value="despesa">Despesas</option>
+            </select>
+            <select
+              value={filterCat}
+              onChange={(e) => setFilterCat(e.target.value)}
+              aria-label="Filtrar por categoria"
+              className={field}
+            >
+              <option value="todas">Categorias</option>
+              {CATS.map((c) => (
+                <option key={c}>{c}</option>
+              ))}
+            </select>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+              aria-label="Ordenar"
+              className={field}
+            >
+              <option value="data">Por data</option>
+              <option value="valor">Por valor</option>
+            </select>
+          </div>
           <div className="mb-4 grid grid-cols-3 gap-2 text-center">
             <Card className="p-3">
               <p className="text-xs text-muted-foreground">Receitas</p>
@@ -207,18 +249,33 @@ export function Financas({
                     {x.type === "receita" ? "+" : "−"}
                     {brl(x.amount)}
                   </span>
-                  <Del
-                    onClick={() =>
-                      update((d) => ({
-                        ...d,
-                        transactions: d.transactions.filter((y) => y.id !== x.id),
-                      }))
-                    }
-                  />
+                  <button
+                    type="button"
+                    aria-label="Editar lançamento"
+                    onClick={() => setEditingTx(x)}
+                    className="text-muted-foreground"
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Excluir"
+                    onClick={() => removeTransaction(x)}
+                    className="text-muted-foreground"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
                 </li>
               ))}
             </ul>
           </Card>
+          {editingTx && (
+            <TransactionDialog
+              key={editingTx.id}
+              tx={editingTx}
+              onClose={() => setEditingTx(null)}
+            />
+          )}
         </>
       )}
 
