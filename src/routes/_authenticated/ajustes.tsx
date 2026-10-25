@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Download, Upload, Trash2, Smartphone, LogOut } from "lucide-react";
 import { toast } from "sonner";
 import { Page, Card } from "@/components/AppShell";
@@ -82,6 +82,7 @@ function Ajustes() {
           <LogOut className="h-5 w-5" /> Sair
         </button>
       </Card>
+      <GroqCard />
       <Card className="mb-4 space-y-3">
         <h2 className="font-semibold">Backup</h2>
         <p className="text-sm text-muted-foreground">
