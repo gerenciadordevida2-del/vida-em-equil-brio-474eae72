@@ -720,6 +720,92 @@ function FinanceGoalDialog({
   );
 }
 
+function TransactionDialog({ tx, onClose }: { tx: Transaction; onClose: () => void }) {
+  const [desc, setDesc] = useState(tx.description);
+  const [amount, setAmount] = useState(String(tx.amount).replace(".", ","));
+  const [cat, setCat] = useState(tx.category);
+  const [date, setDate] = useState(tx.date);
+  const [kind, setKind] = useState<"receita" | "despesa">(tx.type);
+
+  function submit(e: React.FormEvent) {
+    e.preventDefault();
+    const n = money(amount);
+    if (!desc.trim() || !Number.isFinite(n) || n <= 0) {
+      alert("Preencha descrição e valor corretamente.");
+      return;
+    }
+    update((d) => ({
+      ...d,
+      transactions: d.transactions.map((y) =>
+        y.id === tx.id
+          ? { ...y, type: kind, description: desc.trim(), amount: roundMoney(n), category: cat, date }
+          : y,
+      ),
+    }));
+    onClose();
+  }
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-[92vw] rounded-2xl sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Editar lançamento</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={submit} className="space-y-3">
+          <div className="grid grid-cols-2 gap-1 rounded-xl bg-secondary p-1">
+            {(["despesa", "receita"] as const).map((k) => (
+              <button
+                type="button"
+                key={k}
+                onClick={() => setKind(k)}
+                className={`rounded-lg py-2 text-sm font-semibold capitalize ${kind === k ? (k === "receita" ? "bg-success text-primary-foreground" : "bg-destructive text-destructive-foreground") : "text-muted-foreground"}`}
+              >
+                {k}
+              </button>
+            ))}
+          </div>
+          <input
+            required
+            value={desc}
+            onChange={(e) => setDesc(e.target.value)}
+            placeholder="Descrição"
+            className={field}
+          />
+          <input
+            required
+            inputMode="decimal"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            placeholder="Valor (R$)"
+            className={field}
+          />
+          <select value={cat} onChange={(e) => setCat(e.target.value)} className={field}>
+            {CATS.map((c) => (
+              <option key={c}>{c}</option>
+            ))}
+          </select>
+          <label className="block text-sm text-muted-foreground">
+            Data
+            <input
+              required
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className={`${field} mt-1`}
+            />
+          </label>
+          <button
+            type="submit"
+            className="h-12 w-full rounded-xl bg-primary font-semibold text-primary-foreground"
+          >
+            Salvar alterações
+          </button>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function Del({ onClick }: { onClick: () => void }) {
   return (
     <button
