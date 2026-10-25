@@ -352,12 +352,23 @@ export function Financas({
                         {b.description}
                       </p>
                       <p
-                        className={`text-xs ${late ? "text-destructive" : "text-muted-foreground"}`}
+                        className={`text-xs ${status === "vencida" ? "text-destructive" : "text-muted-foreground"}`}
                       >
-                        {late ? "Atrasada · " : "Vence "}
+                        {status === "vencida" ? "Atrasada · " : "Vence "}
                         {fmtDate(b.dueDate)}
                       </p>
                     </div>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                        status === "paga"
+                          ? "bg-success/15 text-success"
+                          : status === "vencida"
+                            ? "bg-destructive/15 text-destructive"
+                            : "bg-secondary text-muted-foreground"
+                      }`}
+                    >
+                      {status === "paga" ? "Paga" : status === "vencida" ? "Vencida" : "Pendente"}
+                    </span>
                     <span className="font-semibold">{brl(b.amount)}</span>
                     <Del
                       onClick={() =>
@@ -373,11 +384,33 @@ export function Financas({
               Ao marcar como paga, a despesa é lançada automaticamente.
             </p>
           )}
-        </Card>
+          </Card>
+        </>
       )}
 
       {tab === "dividas" && (
         <div className="space-y-3">
+          {liabilities.overdueList.length > 0 && (
+            <Card>
+              <h2 className="mb-1 font-semibold text-destructive">Contas vencidas</h2>
+              <p className="mb-2 text-xs text-muted-foreground">
+                Passaram do vencimento e já contam no seu passivo. Quite na aba Contas.
+              </p>
+              <ul className="divide-y">
+                {liabilities.overdueList.map((b) => (
+                  <li key={b.id} className="flex items-center justify-between gap-2 py-2 text-sm">
+                    <span>
+                      {b.description}{" "}
+                      <span className="text-xs text-muted-foreground">
+                        · venceu {fmtDate(b.dueDate)}
+                      </span>
+                    </span>
+                    <span className="font-semibold text-destructive">{brl(b.amount)}</span>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
           {data.debts.length === 0 && (
             <Card>
               <p className="text-sm text-muted-foreground">Nenhuma dívida cadastrada. Ótimo! 🎉</p>
