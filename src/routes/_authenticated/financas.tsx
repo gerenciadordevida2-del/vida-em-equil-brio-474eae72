@@ -1,11 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { Plus, Trash2, Check, Target, PiggyBank, TrendingUp, Pencil } from "lucide-react";
+import { Plus, Trash2, Check, Target, PiggyBank, TrendingUp, Pencil, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { money, roundMoney } from "@/lib/data-validation";
 import { recordDebtPayment } from "@/lib/debt-payment";
 import { monthlyFinance } from "@/lib/finance-metrics";
-import type { FinanceGoal } from "@/lib/store";
+import { billStatus, liabilitySummary } from "@/lib/bill-status";
+import type { FinanceGoal, Transaction } from "@/lib/store";
 import { Page, Card } from "@/components/AppShell";
 import { BusinessTab } from "@/components/BusinessTab";
 import { ChartsTab } from "@/components/ChartsTab";
@@ -56,9 +57,37 @@ export function Financas({
   const month = today().slice(0, 7);
   const [filterMonth, setFilterMonth] = useState(month);
 
+  const [query, setQuery] = useState("");
+  const [filterCat, setFilterCat] = useState("todas");
+  const [filterType, setFilterType] = useState<"todos" | "receita" | "despesa">("todos");
+  const [sortBy, setSortBy] = useState<"data" | "valor">("data");
+  const [editingTx, setEditingTx] = useState<Transaction | null>(null);
   const tx = data.transactions
     .filter((x) => x.date.startsWith(filterMonth))
-    .sort((a, b) => b.date.localeCompare(a.date));
+    .filter((x) => filterType === "todos" || x.type === filterType)
+    .filter((x) => filterCat === "todas" || x.category === filterCat)
+    .filter(
+      (x) => !query.trim() || x.description.toLowerCase().includes(query.trim().toLowerCase()),
+    )
+    .sort((a, b) =>
+      sortBy === "valor" ? b.amount - a.amount : b.date.localeCompare(a.date),
+    );
+  const liabilities = liabilitySummary(data.bills, data.debts, today());
+
+  function removeTransaction(x: Transaction) {
+    const linked = x.id.startsWith("bill-")
+      ? data.bills.find((b) => b.id === x.id.slice(5))
+      : undefined;
+    const msg = linked
+      ? `Excluir este lançamento? A conta “${linked.description}” voltará a ficar em aberto.`
+      : "Excluir este lançamento?";
+    if (!confirm(msg)) return;
+    update((d) => ({
+      ...d,
+      transactions: d.transactions.filter((y) => y.id !== x.id),
+      bills: linked ? d.bills.map((b) => (b.id === linked.id ? { ...b, paid: false } : b)) : d.bills,
+    }));
+  }
   const { income: inc, expenses: exp, balance } = monthlyFinance(data.transactions, filterMonth);
   const byCat = Object.entries(
     tx
