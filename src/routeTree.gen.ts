@@ -19,6 +19,7 @@ import { Route as AuthenticatedMetasRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedRotinaRouteImport } from './routes/_authenticated/rotina'
 import { Route as AuthenticatedTreinosRouteImport } from './routes/_authenticated/treinos'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
+import { Route as ApiGroqStatusRouteImport } from './routes/api/groq-status'
 
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
   id: '/_authenticated',
@@ -69,6 +70,11 @@ const ApiChatRoute = ApiChatRouteImport.update({
   path: '/api/chat',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiGroqStatusRoute = ApiGroqStatusRouteImport.update({
+  id: '/api/groq-status',
+  path: '/api/groq-status',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
@@ -80,6 +86,7 @@ export interface FileRoutesByFullPath {
   '/rotina': typeof AuthenticatedRotinaRoute
   '/treinos': typeof AuthenticatedTreinosRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/groq-status': typeof ApiGroqStatusRoute
 }
 export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
@@ -90,6 +97,7 @@ export interface FileRoutesByTo {
   '/rotina': typeof AuthenticatedRotinaRoute
   '/treinos': typeof AuthenticatedTreinosRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/groq-status': typeof ApiGroqStatusRoute
   '/': typeof AuthenticatedIndexRoute
 }
 export interface FileRoutesById {
@@ -103,6 +111,7 @@ export interface FileRoutesById {
   '/_authenticated/rotina': typeof AuthenticatedRotinaRoute
   '/_authenticated/treinos': typeof AuthenticatedTreinosRoute
   '/api/chat': typeof ApiChatRoute
+  '/api/groq-status': typeof ApiGroqStatusRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
 }
 export interface FileRouteTypes {
@@ -117,6 +126,7 @@ export interface FileRouteTypes {
     | '/rotina'
     | '/treinos'
     | '/api/chat'
+    | '/api/groq-status'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/auth'
@@ -127,6 +137,7 @@ export interface FileRouteTypes {
     | '/rotina'
     | '/treinos'
     | '/api/chat'
+    | '/api/groq-status'
     | '/'
   id:
     | '__root__'
@@ -139,6 +150,7 @@ export interface FileRouteTypes {
     | '/_authenticated/rotina'
     | '/_authenticated/treinos'
     | '/api/chat'
+    | '/api/groq-status'
     | '/_authenticated/'
   fileRoutesById: FileRoutesById
 }
@@ -146,6 +158,7 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   ApiChatRoute: typeof ApiChatRoute
+  ApiGroqStatusRoute: typeof ApiGroqStatusRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -220,6 +233,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiChatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/groq-status': {
+      id: '/api/groq-status'
+      path: '/api/groq-status'
+      fullPath: '/api/groq-status'
+      preLoaderRoute: typeof ApiGroqStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -250,6 +270,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   ApiChatRoute: ApiChatRoute,
+  ApiGroqStatusRoute: ApiGroqStatusRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

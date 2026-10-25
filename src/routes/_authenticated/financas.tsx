@@ -1,11 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { Plus, Trash2, Check, Target, PiggyBank, TrendingUp, Pencil } from "lucide-react";
+import { Plus, Trash2, Check, Target, PiggyBank, TrendingUp, Pencil, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { money, roundMoney } from "@/lib/data-validation";
 import { recordDebtPayment } from "@/lib/debt-payment";
 import { monthlyFinance } from "@/lib/finance-metrics";
-import type { FinanceGoal } from "@/lib/store";
+import { billStatus, liabilitySummary } from "@/lib/bill-status";
+import type { FinanceGoal, Transaction } from "@/lib/store";
 import { Page, Card } from "@/components/AppShell";
 import { BusinessTab } from "@/components/BusinessTab";
 import { ChartsTab } from "@/components/ChartsTab";
@@ -56,9 +57,37 @@ export function Financas({
   const month = today().slice(0, 7);
   const [filterMonth, setFilterMonth] = useState(month);
 
+  const [query, setQuery] = useState("");
+  const [filterCat, setFilterCat] = useState("todas");
+  const [filterType, setFilterType] = useState<"todos" | "receita" | "despesa">("todos");
+  const [sortBy, setSortBy] = useState<"data" | "valor">("data");
+  const [editingTx, setEditingTx] = useState<Transaction | null>(null);
   const tx = data.transactions
     .filter((x) => x.date.startsWith(filterMonth))
-    .sort((a, b) => b.date.localeCompare(a.date));
+    .filter((x) => filterType === "todos" || x.type === filterType)
+    .filter((x) => filterCat === "todas" || x.category === filterCat)
+    .filter(
+      (x) => !query.trim() || x.description.toLowerCase().includes(query.trim().toLowerCase()),
+    )
+    .sort((a, b) =>
+      sortBy === "valor" ? b.amount - a.amount : b.date.localeCompare(a.date),
+    );
+  const liabilities = liabilitySummary(data.bills, data.debts, today());
+
+  function removeTransaction(x: Transaction) {
+    const linked = x.id.startsWith("bill-")
+      ? data.bills.find((b) => b.id === x.id.slice(5))
+      : undefined;
+    const msg = linked
+      ? `Excluir este lançamento? A conta “${linked.description}” voltará a ficar em aberto.`
+      : "Excluir este lançamento?";
+    if (!confirm(msg)) return;
+    update((d) => ({
+      ...d,
+      transactions: d.transactions.filter((y) => y.id !== x.id),
+      bills: linked ? d.bills.map((b) => (b.id === linked.id ? { ...b, paid: false } : b)) : d.bills,
+    }));
+  }
   const { income: inc, expenses: exp, balance } = monthlyFinance(data.transactions, filterMonth);
   const byCat = Object.entries(
     tx
@@ -122,6 +151,48 @@ export function Financas({
             onChange={(e) => setFilterMonth(e.target.value || month)}
             className={`${field} mb-3`}
           />
+          <div className="relative mb-2">
+            <Search className="absolute left-3 top-3.5 h-5 w-5 text-muted-foreground" />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Pesquisar lançamentos"
+              aria-label="Pesquisar lançamentos"
+              className={`${field} pl-10`}
+            />
+          </div>
+          <div className="mb-4 grid grid-cols-3 gap-2">
+            <select
+              value={filterType}
+              onChange={(e) => setFilterType(e.target.value as typeof filterType)}
+              aria-label="Filtrar por tipo"
+              className={field}
+            >
+              <option value="todos">Todos</option>
+              <option value="receita">Receitas</option>
+              <option value="despesa">Despesas</option>
+            </select>
+            <select
+              value={filterCat}
+              onChange={(e) => setFilterCat(e.target.value)}
+              aria-label="Filtrar por categoria"
+              className={field}
+            >
+              <option value="todas">Categorias</option>
+              {CATS.map((c) => (
+                <option key={c}>{c}</option>
+              ))}
+            </select>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+              aria-label="Ordenar"
+              className={field}
+            >
+              <option value="data">Por data</option>
+              <option value="valor">Por valor</option>
+            </select>
+          </div>
           <div className="mb-4 grid grid-cols-3 gap-2 text-center">
             <Card className="p-3">
               <p className="text-xs text-muted-foreground">Receitas</p>
@@ -178,31 +249,72 @@ export function Financas({
                     {x.type === "receita" ? "+" : "−"}
                     {brl(x.amount)}
                   </span>
-                  <Del
-                    onClick={() =>
-                      update((d) => ({
-                        ...d,
-                        transactions: d.transactions.filter((y) => y.id !== x.id),
-                      }))
-                    }
-                  />
+                  <button
+                    type="button"
+                    aria-label="Editar lançamento"
+                    onClick={() => setEditingTx(x)}
+                    className="text-muted-foreground"
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Excluir"
+                    onClick={() => removeTransaction(x)}
+                    className="text-muted-foreground"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
                 </li>
               ))}
             </ul>
           </Card>
+          {editingTx && (
+            <TransactionDialog
+              key={editingTx.id}
+              tx={editingTx}
+              onClose={() => setEditingTx(null)}
+            />
+          )}
         </>
       )}
 
       {tab === "contas" && (
-        <Card>
-          {data.bills.length === 0 && (
-            <p className="text-sm text-muted-foreground">Nenhuma conta cadastrada.</p>
+        <>
+          {(liabilities.pendingBills > 0 || liabilities.overdueBills > 0) && (
+            <Card className="mb-4">
+              <h2 className="mb-2 font-semibold">Passivo em aberto</h2>
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div>
+                  <p className="text-xs text-muted-foreground">A vencer</p>
+                  <p className="text-sm font-semibold">{brl(liabilities.pendingBills)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Vencido</p>
+                  <p className="text-sm font-semibold text-destructive">
+                    {brl(liabilities.overdueBills)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Passivo total</p>
+                  <p className="text-sm font-semibold">{brl(liabilities.total)}</p>
+                </div>
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Contas que passam do vencimento entram no passivo automaticamente, sem duplicar
+                lançamentos.
+              </p>
+            </Card>
           )}
-          <ul className="divide-y">
-            {[...data.bills]
-              .sort((a, b) => Number(a.paid) - Number(b.paid) || a.dueDate.localeCompare(b.dueDate))
-              .map((b) => {
-                const late = !b.paid && b.dueDate < today();
+          <Card>
+            {data.bills.length === 0 && (
+              <p className="text-sm text-muted-foreground">Nenhuma conta cadastrada.</p>
+            )}
+            <ul className="divide-y">
+              {[...data.bills]
+                .sort((a, b) => Number(a.paid) - Number(b.paid) || a.dueDate.localeCompare(b.dueDate))
+                .map((b) => {
+                  const status = billStatus(b, today());
                 return (
                   <li key={b.id} className="flex items-center gap-3 py-3">
                     <button
@@ -240,12 +352,23 @@ export function Financas({
                         {b.description}
                       </p>
                       <p
-                        className={`text-xs ${late ? "text-destructive" : "text-muted-foreground"}`}
+                        className={`text-xs ${status === "vencida" ? "text-destructive" : "text-muted-foreground"}`}
                       >
-                        {late ? "Atrasada · " : "Vence "}
+                        {status === "vencida" ? "Atrasada · " : "Vence "}
                         {fmtDate(b.dueDate)}
                       </p>
                     </div>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                        status === "paga"
+                          ? "bg-success/15 text-success"
+                          : status === "vencida"
+                            ? "bg-destructive/15 text-destructive"
+                            : "bg-secondary text-muted-foreground"
+                      }`}
+                    >
+                      {status === "paga" ? "Paga" : status === "vencida" ? "Vencida" : "Pendente"}
+                    </span>
                     <span className="font-semibold">{brl(b.amount)}</span>
                     <Del
                       onClick={() =>
@@ -261,11 +384,33 @@ export function Financas({
               Ao marcar como paga, a despesa é lançada automaticamente.
             </p>
           )}
-        </Card>
+          </Card>
+        </>
       )}
 
       {tab === "dividas" && (
         <div className="space-y-3">
+          {liabilities.overdueList.length > 0 && (
+            <Card>
+              <h2 className="mb-1 font-semibold text-destructive">Contas vencidas</h2>
+              <p className="mb-2 text-xs text-muted-foreground">
+                Passaram do vencimento e já contam no seu passivo. Quite na aba Contas.
+              </p>
+              <ul className="divide-y">
+                {liabilities.overdueList.map((b) => (
+                  <li key={b.id} className="flex items-center justify-between gap-2 py-2 text-sm">
+                    <span>
+                      {b.description}{" "}
+                      <span className="text-xs text-muted-foreground">
+                        · venceu {fmtDate(b.dueDate)}
+                      </span>
+                    </span>
+                    <span className="font-semibold text-destructive">{brl(b.amount)}</span>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
           {data.debts.length === 0 && (
             <Card>
               <p className="text-sm text-muted-foreground">Nenhuma dívida cadastrada. Ótimo! 🎉</p>
@@ -568,6 +713,92 @@ function FinanceGoalDialog({
             className="h-12 w-full rounded-xl bg-primary font-semibold text-primary-foreground"
           >
             Salvar meta
+          </button>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function TransactionDialog({ tx, onClose }: { tx: Transaction; onClose: () => void }) {
+  const [desc, setDesc] = useState(tx.description);
+  const [amount, setAmount] = useState(String(tx.amount).replace(".", ","));
+  const [cat, setCat] = useState(tx.category);
+  const [date, setDate] = useState(tx.date);
+  const [kind, setKind] = useState<"receita" | "despesa">(tx.type);
+
+  function submit(e: React.FormEvent) {
+    e.preventDefault();
+    const n = money(amount);
+    if (!desc.trim() || !Number.isFinite(n) || n <= 0) {
+      alert("Preencha descrição e valor corretamente.");
+      return;
+    }
+    update((d) => ({
+      ...d,
+      transactions: d.transactions.map((y) =>
+        y.id === tx.id
+          ? { ...y, type: kind, description: desc.trim(), amount: roundMoney(n), category: cat, date }
+          : y,
+      ),
+    }));
+    onClose();
+  }
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-[92vw] rounded-2xl sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Editar lançamento</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={submit} className="space-y-3">
+          <div className="grid grid-cols-2 gap-1 rounded-xl bg-secondary p-1">
+            {(["despesa", "receita"] as const).map((k) => (
+              <button
+                type="button"
+                key={k}
+                onClick={() => setKind(k)}
+                className={`rounded-lg py-2 text-sm font-semibold capitalize ${kind === k ? (k === "receita" ? "bg-success text-primary-foreground" : "bg-destructive text-destructive-foreground") : "text-muted-foreground"}`}
+              >
+                {k}
+              </button>
+            ))}
+          </div>
+          <input
+            required
+            value={desc}
+            onChange={(e) => setDesc(e.target.value)}
+            placeholder="Descrição"
+            className={field}
+          />
+          <input
+            required
+            inputMode="decimal"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            placeholder="Valor (R$)"
+            className={field}
+          />
+          <select value={cat} onChange={(e) => setCat(e.target.value)} className={field}>
+            {CATS.map((c) => (
+              <option key={c}>{c}</option>
+            ))}
+          </select>
+          <label className="block text-sm text-muted-foreground">
+            Data
+            <input
+              required
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className={`${field} mt-1`}
+            />
+          </label>
+          <button
+            type="submit"
+            className="h-12 w-full rounded-xl bg-primary font-semibold text-primary-foreground"
+          >
+            Salvar alterações
           </button>
         </form>
       </DialogContent>

@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Download, Upload, Trash2, Smartphone, LogOut } from "lucide-react";
 import { toast } from "sonner";
 import { Page, Card } from "@/components/AppShell";
@@ -21,6 +21,70 @@ export const Route = createFileRoute("/_authenticated/ajustes")({
   }),
   component: Ajustes,
 });
+
+function GroqCard() {
+  const [status, setStatus] = useState<{ configured: boolean; model: string } | null>(null);
+  const [testing, setTesting] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const { data: s } = await supabase.auth.getSession();
+      const token = s.session?.access_token;
+      if (!token) return;
+      const res = await fetch("/api/groq-status", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) setStatus(await res.json());
+    })().catch(() => {});
+  }, []);
+
+  async function test() {
+    setTesting(true);
+    try {
+      const { data: s } = await supabase.auth.getSession();
+      const token = s.session?.access_token;
+      if (!token) {
+        toast.error("Entre na sua conta para testar.");
+        return;
+      }
+      const res = await fetch("/api/groq-status", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const body = await res.json();
+      if (body.ok) toast.success(`Conexão com a Groq funcionando (modelo ${body.model}).`);
+      else toast.error(body.error ?? "Falha no teste de conexão.");
+      if (typeof body.configured === "boolean")
+        setStatus({ configured: body.configured, model: body.model ?? status?.model ?? "" });
+    } catch {
+      toast.error("Não foi possível testar agora. Verifique sua conexão.");
+    } finally {
+      setTesting(false);
+    }
+  }
+
+  return (
+    <Card className="mb-4 space-y-3">
+      <h2 className="font-semibold">Inteligência Artificial — Groq</h2>
+      <div className="flex items-center justify-between rounded-xl border bg-secondary px-3 py-2 text-sm">
+        <span className="text-muted-foreground">Chave de API</span>
+        <span className="font-mono">{status?.configured ? "••••••••••••" : "não configurada"}</span>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        A chave fica guardada com segurança nos secrets do projeto (no servidor) e nunca aparece
+        no aplicativo, no banco de dados ou nos logs. Para cadastrar ou trocar a chave, peça no
+        chat: “configurar a chave da Groq”.
+      </p>
+      <button
+        onClick={test}
+        disabled={testing}
+        className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border bg-secondary font-semibold disabled:opacity-50"
+      >
+        {testing ? "Testando…" : "Testar conexão"}
+      </button>
+    </Card>
+  );
+}
 
 function Ajustes() {
   const fileRef = useRef<HTMLInputElement>(null);
@@ -82,6 +146,7 @@ function Ajustes() {
           <LogOut className="h-5 w-5" /> Sair
         </button>
       </Card>
+      <GroqCard />
       <Card className="mb-4 space-y-3">
         <h2 className="font-semibold">Backup</h2>
         <p className="text-sm text-muted-foreground">
