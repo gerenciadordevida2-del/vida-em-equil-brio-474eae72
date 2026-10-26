@@ -22,3 +22,5 @@
 
 - Cloud sync (src/lib/cloud-sync.ts): every local change marks a per-user "dirty" flag with its base revision before any network call; pending data is resent only when the cloud is still at that revision, otherwise the user chooses between versions. Why: never overwrite device or cloud data silently.
 - /api/chat must call authorizeChat (session check + consume_chat_quota) before handleChat. Why: the AI key and quota are server-side and visitors must not use them.
+- Bill status and liability totals are derived from dates in src/lib/bill-status.ts (billStatus/liabilitySummary), never stored as separate records — a bill becomes "vencida" automatically by date comparison, so no duplication and no dependence on the app being opened on the due date.
+- The Groq key lives only in server secrets (GERENCIADOR_DE_VIDA_API_KEY, fallback GROQ_API_KEY); src/routes/api/groq-status.ts (session-verified via verifySession from api/chat) reports configured status and runs the real test call without ever returning the key.
