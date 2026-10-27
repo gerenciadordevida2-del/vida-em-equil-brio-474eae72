@@ -93,14 +93,61 @@ export type Database = {
         }
         Relationships: []
       }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      admin_list_users: {
+        Args: never
+        Returns: {
+          created_at: string
+          display_name: string
+          email: string
+          roles: Database["public"]["Enums"]["app_role"][]
+          user_id: string
+        }[]
+      }
+      admin_set_vip: {
+        Args: { _grant: boolean; _target: string }
+        Returns: boolean
+      }
+      bootstrap_owner: { Args: never; Returns: boolean }
       consume_chat_quota: {
         Args: { max_per_day?: number; max_per_minute?: number }
         Returns: boolean
+      }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      my_roles: {
+        Args: never
+        Returns: Database["public"]["Enums"]["app_role"][]
       }
       save_app_data: {
         Args: { expected_revision: number; payload: Json }
@@ -108,7 +155,7 @@ export type Database = {
       }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "vip" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -235,6 +282,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "vip", "user"],
+    },
   },
 } as const

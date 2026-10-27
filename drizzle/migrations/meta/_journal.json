@@ -15,6 +15,13 @@
       "when": 1792811782163,
       "tag": "0001_chat_quota_and_save_validation",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793104644187,
+      "tag": "0002_owner_vip_roles",
+      "breakpoints": true
     }
   ]
 }
