@@ -23,6 +23,72 @@ export const Route = createFileRoute("/_authenticated/ajustes")({
   component: Ajustes,
 });
 
+/** Cartão do proprietário: mostra o acesso à área administrativa ou permite que o
+ * PRIMEIRO usuário reivindique a propriedade (o servidor só aceita se ainda não
+ * existir nenhum proprietário — depois disso, ninguém mais se promove). */
+function OwnerCard() {
+  const { isAdmin, isLoading } = useMyRoles();
+  const queryClient = useQueryClient();
+  const [claiming, setClaiming] = useState(false);
+
+  async function claim() {
+    setClaiming(true);
+    try {
+      const { data, error } = await supabase.rpc("bootstrap_owner");
+      if (error) throw error;
+      if (data === true) {
+        toast.success("Você agora é o proprietário do aplicativo.");
+        queryClient.invalidateQueries({ queryKey: ["my-roles"] });
+      } else {
+        toast.error("Este aplicativo já tem um proprietário.");
+      }
+    } catch {
+      toast.error("Não foi possível concluir. Tente novamente.");
+    } finally {
+      setClaiming(false);
+    }
+  }
+
+  if (isLoading) return null;
+
+  if (isAdmin)
+    return (
+      <Card className="mb-4 space-y-3">
+        <h2 className="flex items-center gap-2 font-semibold">
+          <Crown className="h-4 w-4 text-primary" /> Proprietário
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          Você tem acesso administrativo e uso da IA sem os limites dos clientes.
+        </p>
+        <Link
+          to="/admin"
+          className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary font-semibold text-primary-foreground"
+        >
+          <ShieldCheck className="h-5 w-5" /> Abrir área do proprietário
+        </Link>
+      </Card>
+    );
+
+  return (
+    <Card className="mb-4 space-y-3">
+      <h2 className="flex items-center gap-2 font-semibold">
+        <Crown className="h-4 w-4 text-primary" /> Proprietário do aplicativo
+      </h2>
+      <p className="text-sm text-muted-foreground">
+        Se este aplicativo ainda não tem proprietário, a primeira conta a confirmar aqui passa a
+        ser a dona, com acesso administrativo. Essa verificação acontece no servidor.
+      </p>
+      <button
+        onClick={claim}
+        disabled={claiming}
+        className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border bg-secondary font-semibold disabled:opacity-50"
+      >
+        {claiming ? "Verificando…" : "Tornar-me proprietário"}
+      </button>
+    </Card>
+  );
+}
+
 function GroqCard() {
   const [status, setStatus] = useState<{ configured: boolean; model: string } | null>(null);
   const [testing, setTesting] = useState(false);
