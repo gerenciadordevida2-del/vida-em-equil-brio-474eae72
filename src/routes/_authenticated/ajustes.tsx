@@ -1,12 +1,13 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useRef, useState } from "react";
-import { Download, Upload, Trash2, Smartphone, LogOut } from "lucide-react";
+import { Download, Upload, Trash2, Smartphone, LogOut, Crown, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { Page, Card } from "@/components/AppShell";
 import { exportBackup, importBackup, clearAll } from "@/lib/store";
 import { useProfile, useUpdateProfile, displayNameOf, avatarOf } from "@/lib/profile";
+import { useMyRoles, planOf, PLAN_LABELS } from "@/lib/roles";
 
 export const Route = createFileRoute("/_authenticated/ajustes")({
   head: () => ({
