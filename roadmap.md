@@ -23,3 +23,4 @@
 - [ ] Integrar panorama financeiro pessoal mensal acima das vendas na Home, preservando dados e visual.
 - [ ] Validar totais compartilhados, custos suficientes e cartões em celular com usuário autenticado.
 - [ ] Auditoria e preparação para planos/assinaturas (sem cobranças, sem migrações): documentar arquitetura, modelo de dados proposto e integração futura com Mercado Pago; aguardar aprovação antes de qualquer alteração de banco.
+- [ ] Decisão pendente: sincronizar do ZIP de referência a venda com vários produtos (SaleItem/withItems + telas), preservando as correções já aplicadas no projeto.
