@@ -45,6 +45,13 @@ const business = z
             payments: z.array(movement),
             expectedDate: validDate.optional(),
             notes: optText,
+            items: z
+              .array(
+                z
+                  .object({ product: text, quantity: positive, unitPrice: nonneg, unitCost: nonneg.optional(), productId: optText })
+                  .passthrough(),
+              )
+              .optional(),
           })
           .passthrough(),
       )

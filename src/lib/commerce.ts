@@ -7,6 +7,7 @@ import {
   isActiveSale,
   paidOf,
   remaining,
+  saleLines,
   saleProfit,
   saleTotal,
   type BusinessData,
@@ -81,7 +82,10 @@ export function upsertProduct(b: BusinessData, prod: Product): BusinessData {
 
 /** Units of a product consumed by a sale (0 when not linked or not active). */
 const consumption = (s: Sale | null | undefined, productId: string) =>
-  s && isActiveSale(s) && s.productId === productId ? s.quantity : 0;
+  s && isActiveSale(s)
+    ? saleLines(s).filter((l) => l.productId === productId).reduce((a, l) => a + l.quantity, 0)
+    : 0;
+const productIdsOf = (s: Sale | null | undefined) => (s ? saleLines(s).map((l) => l.productId) : []);
 
 /** Applies the stock effect of creating/editing/deleting a sale (prev → next).
  * Refuses to leave any product below zero unless allowNegative. */
@@ -93,7 +97,7 @@ export function applySaleStock(
   allowNegative = false,
   reasonOverride?: StockMove["reason"],
 ): BusinessData {
-  const ids = new Set([prev?.productId, next?.productId].filter(Boolean) as string[]);
+  const ids = new Set([...productIdsOf(prev), ...productIdsOf(next)].filter(Boolean) as string[]);
   if (ids.size === 0) return b;
   let products = b.products ?? [];
   const moves = [...(b.stockMoves ?? [])];
@@ -244,11 +248,18 @@ export function revenueSeries(b: BusinessData, day: string, days = 14): DayPoint
 export function topProducts(b: BusinessData, monthPrefix: string, limit = 5) {
   const map = new Map<string, { name: string; quantity: number; revenue: number }>();
   for (const s of b.sales.filter((x) => isActiveSale(x) && x.date.startsWith(monthPrefix))) {
-    const key = s.productId ?? `n:${normName(s.product)}`;
-    const cur = map.get(key) ?? { name: s.product, quantity: 0, revenue: 0 };
-    cur.quantity += s.quantity;
-    cur.revenue = r(c(cur.revenue) + c(saleTotal(s)));
-    map.set(key, cur);
+    const lines = saleLines(s);
+    const gross = lines.reduce((a, l) => a + c(l.quantity * l.unitPrice), 0);
+    const net = c(saleTotal(s));
+    for (const l of lines) {
+      const key = l.productId ?? `n:${normName(l.product)}`;
+      const cur = map.get(key) ?? { name: l.product, quantity: 0, revenue: 0 };
+      cur.quantity += l.quantity;
+      // Discount is spread proportionally so product revenue adds up to the sale total.
+      const share = gross > 0 ? Math.round((c(l.quantity * l.unitPrice) * net) / gross) : 0;
+      cur.revenue = r(c(cur.revenue) + share);
+      map.set(key, cur);
+    }
   }
   return [...map.values()].sort((a, b) => b.quantity - a.quantity).slice(0, limit);
 }
