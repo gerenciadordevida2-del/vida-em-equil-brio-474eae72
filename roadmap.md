@@ -22,3 +22,4 @@
 - [ ] Testar regras, persistência, isolamento e navegação móvel; relatar bloqueios reais.
 - [ ] Integrar panorama financeiro pessoal mensal acima das vendas na Home, preservando dados e visual.
 - [ ] Validar totais compartilhados, custos suficientes e cartões em celular com usuário autenticado.
+- [ ] Auditoria e preparação para planos/assinaturas (sem cobranças, sem migrações): documentar arquitetura, modelo de dados proposto e integração futura com Mercado Pago; aguardar aprovação antes de qualquer alteração de banco.
