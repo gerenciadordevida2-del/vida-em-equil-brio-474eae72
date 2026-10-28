@@ -3,8 +3,20 @@
 
 export type Movement = { date: string; amount: number };
 
+/** One product line of a sale. unitPrice/unitCost are snapshots taken when the sale was
+ * registered, so later product price edits never change past sales. */
+export type SaleItem = {
+  productId?: string | undefined;
+  product: string;
+  quantity: number;
+  unitPrice: number;
+  unitCost?: number | undefined;
+};
+
 export type Sale = {
   id: string;
+  /** Multi-product sales. When absent (legacy sales), the top-level product fields are the single line. */
+  items?: SaleItem[] | undefined;
   customer: string;
   product: string;
   quantity: number;
@@ -125,8 +137,58 @@ const c = (v: number) => Math.round(v * 100);
 const r = (cents: number) => cents / 100;
 const sumC = (xs: number[]) => xs.reduce((s, x) => s + c(x), 0);
 
-export const saleTotal = (s: Pick<Sale, "quantity" | "unitPrice" | "discount">) =>
-  r(Math.max(0, c(s.quantity * s.unitPrice) - c(s.discount || 0)));
+type SaleLike = Pick<Sale, "quantity" | "unitPrice" | "discount"> &
+  Partial<Pick<Sale, "items" | "product" | "productId" | "unitCost">>;
+
+/** Product lines of a sale; legacy single-product sales become one line. */
+export function saleLines(s: SaleLike): SaleItem[] {
+  if (s.items && s.items.length) return s.items;
+  return [{ productId: s.productId, product: s.product ?? "", quantity: s.quantity, unitPrice: s.unitPrice, unitCost: s.unitCost }];
+}
+
+export const lineSubtotal = (l: Pick<SaleItem, "quantity" | "unitPrice">) => r(c(l.quantity * l.unitPrice));
+
+export const saleTotal = (s: SaleLike) =>
+  r(Math.max(0, saleLines(s).reduce((a, l) => a + c(l.quantity * l.unitPrice), 0) - c(s.discount || 0)));
+
+/** Validates lines and fills the legacy summary fields (product label, total quantity,
+ * first line price/product) so older screens and backups keep reading the sale. */
+export function withItems<T extends Omit<Sale, "product" | "quantity" | "unitPrice" | "unitCost" | "productId">>(
+  base: T,
+  items: SaleItem[],
+): Sale {
+  if (!items.length) throw new Error("Adicione pelo menos um produto.");
+  const clean = items.map((l) => {
+    const product = l.product.trim();
+    if (!product) throw new Error("Informe o nome de cada produto.");
+    if (!(Number.isFinite(l.quantity) && l.quantity > 0)) throw new Error(`Quantidade inválida em “${product}”.`);
+    if (!(Number.isFinite(l.unitPrice) && l.unitPrice >= 0)) throw new Error(`Preço inválido em “${product}”.`);
+    if (l.unitCost !== undefined && !(Number.isFinite(l.unitCost) && l.unitCost >= 0))
+      throw new Error(`Custo inválido em “${product}”.`);
+    return {
+      product,
+      quantity: l.quantity,
+      unitPrice: r(c(l.unitPrice)),
+      ...(l.productId ? { productId: l.productId } : {}),
+      ...(l.unitCost !== undefined ? { unitCost: r(c(l.unitCost)) } : {}),
+    } as SaleItem;
+  });
+  const first = clean[0]!;
+  const label = clean.length === 1 ? first.product : clean.map((l) => `${l.quantity}x ${l.product}`).join(" + ");
+  const { productId: _p, unitCost: _c, ...rest } = base as T & { productId?: string; unitCost?: number };
+  const sale: Sale = {
+    ...(rest as T),
+    product: label,
+    quantity: clean.reduce((a, l) => a + l.quantity, 0),
+    unitPrice: first.unitPrice,
+    items: clean,
+  } as Sale;
+  if (clean.length === 1) {
+    if (first.productId) sale.productId = first.productId;
+    if (first.unitCost !== undefined) sale.unitCost = first.unitCost;
+  }
+  return sale;
+}
 
 export const paidOf = (m: { payments: Movement[] }) => r(sumC(m.payments.map((p) => p.amount)));
 
@@ -142,9 +204,10 @@ export function statusOf(total: number, m: { payments: Movement[] }): PayStatus 
 
 /** Returns sale profit or null when the unit cost is unknown (never assumes profit). */
 export function saleProfit(s: Sale): { profit: number; margin: number } | null {
-  if (s.unitCost === undefined || s.unitCost === null || Number.isNaN(s.unitCost)) return null;
+  const lines = saleLines(s);
+  if (lines.some((l) => l.unitCost === undefined || l.unitCost === null || Number.isNaN(l.unitCost))) return null;
   const total = saleTotal(s);
-  const profit = r(c(total) - c(s.quantity * s.unitCost));
+  const profit = r(c(total) - lines.reduce((a, l) => a + c(l.quantity * l.unitCost!), 0));
   return { profit, margin: total > 0 ? profit / total : 0 };
 }
 
@@ -261,7 +324,7 @@ export function businessDueOn(b: BusinessData, day: string): AgendaItem[] {
 /** Units sold on a given day: sum of the quantities of that day's sales.
  * Computed from the sales themselves, so edits and deletes are never double counted. */
 export function soldOn(b: BusinessData, day: string): number {
-  return b.sales.filter((s) => isActiveSale(s) && s.date === day).reduce((sum, s) => sum + s.quantity, 0);
+  return b.sales.filter((s) => isActiveSale(s) && s.date === day).reduce((sum, s) => sum + saleLines(s).reduce((a, l) => a + l.quantity, 0), 0);
 }
 
 /** Daily stock state for the given day, or null when no initial quantity was set for it. */
@@ -278,4 +341,55 @@ export function assertStockAvailable(b: BusinessData, day: string, quantity: num
   if (s.remaining <= 0) throw new Error("Estoque esgotado por hoje. Redefina a quantidade inicial para vender mais.");
   if (quantity > s.remaining)
     throw new Error(`Estoque insuficiente: restam ${s.remaining} unidade(s) hoje.`);
+}
+
+/** Open (unpaid) balance of a customer: sum of what is still due on each active sale. */
+export function customerOpenBalance(b: BusinessData, customerId: string): number {
+  return r(b.sales.filter((s) => isActiveSale(s) && s.customerId === customerId)
+    .reduce((a, s) => a + c(remaining(saleTotal(s), s)), 0));
+}
+
+/** Registers one customer payment against the consolidated balance. The amount is split
+ * across that customer's open sales, oldest first, so each sale keeps a traceable payment
+ * (same paymentId) and already-paid sales are never reopened. Refuses overpayment. */
+export function payCustomer(b: BusinessData, customerId: string, amount: number, date: string, paymentId: string): BusinessData {
+  let left = c(amount);
+  if (!(left > 0)) throw new Error("Informe um valor maior que zero.");
+  if (b.sales.some((s) => s.payments.some((p) => (p as Movement & { paymentId?: string }).paymentId === paymentId)))
+    return b; // same payment submitted twice: ignore
+  const open = c(customerOpenBalance(b, customerId));
+  if (left > open) throw new Error("O valor é maior que o saldo devedor do cliente.");
+  const order = b.sales
+    .filter((s) => isActiveSale(s) && s.customerId === customerId && remaining(saleTotal(s), s) > 0)
+    .sort((x, y) => x.date.localeCompare(y.date) || x.id.localeCompare(y.id))
+    .map((s) => s.id);
+  const sales = b.sales.map((s) => s);
+  for (const id of order) {
+    if (left <= 0) break;
+    const i = sales.findIndex((s) => s.id === id);
+    const s = sales[i]!;
+    const take = Math.min(left, c(remaining(saleTotal(s), s)));
+    sales[i] = { ...s, payments: [...s.payments, { date, amount: r(take), paymentId } as Movement] };
+    left -= take;
+  }
+  return { ...b, sales };
+}
+
+/** Breakdown shown before confirming a sale: balance already owed (excluding the sale being
+ * edited, so it is never counted twice), the new purchase, what is paid now and the result. */
+export function saleBalancePreview(
+  b: BusinessData,
+  customerId: string | undefined,
+  excludeSaleId: string | undefined,
+  newTotal: number,
+  paidNow: number,
+) {
+  const previous = customerId
+    ? b.sales
+        .filter((s) => isActiveSale(s) && s.customerId === customerId && s.id !== excludeSaleId)
+        .reduce((a, s) => a + c(remaining(saleTotal(s), s)), 0)
+    : 0;
+  const nt = Math.max(0, c(newTotal));
+  const pn = Math.min(nt, Math.max(0, c(paidNow)));
+  return { previous: r(previous), newPurchase: r(nt), paidNow: r(pn), newBalance: r(previous + nt - pn) };
 }

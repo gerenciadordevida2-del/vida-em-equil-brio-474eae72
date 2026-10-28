@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { money, roundMoney } from "@/lib/data-validation";
 import { brl, fmtDate, today, uid, update, useData } from "@/lib/store";
-import { remaining, reminderStatus, saleTotal, type BusinessData, type Customer, type Product, type Sale } from "@/lib/business";
+import { payCustomer, remaining, reminderStatus, saleTotal, type BusinessData, type Customer, type Product, type Sale } from "@/lib/business";
 import {
   customerSummary, lowStock, normName, reminderMessage, revenueSeries, topProducts,
   upsertCustomer, upsertProduct, whatsappLink,
@@ -224,6 +224,29 @@ function CustomerDialog({ customer, onClose }: { customer: Customer | null; onCl
 function CustomerHistory({ customer, onClose }: { customer: Customer; onClose: () => void }) {
   const data = useData();
   const s = customerSummary(data.business, customer.id);
+  const [paying, setPaying] = useState(false);
+  const [amount, setAmount] = useState("");
+  const [date, setDate] = useState(today());
+  const [busy, setBusy] = useState(false);
+  const [payId, setPayId] = useState(() => uid());
+  // One customer payment may be split across several sales: show it as one transaction.
+  const grouped = new Map<string, { date: string; amount: number; items: string[] }>();
+  s.payments.forEach((p, i) => {
+    const key = (p as { paymentId?: string }).paymentId ?? `${p.saleId}-${i}`;
+    const g = grouped.get(key) ?? { date: p.date, amount: 0, items: [] };
+    g.amount = roundMoney(g.amount + p.amount);
+    if (!g.items.includes(p.product)) g.items.push(p.product);
+    grouped.set(key, g);
+  });
+  function pay() {
+    if (busy) return;
+    const v = roundMoney(money(amount));
+    if (!(v > 0)) return void toast.error("Informe um valor válido.");
+    setBusy(true);
+    const ok = setBiz((b) => payCustomer(b, customer.id, v, date || today(), payId));
+    setBusy(false);
+    if (ok) { toast.success("Pagamento registrado."); setPaying(false); setAmount(""); setPayId(uid()); }
+  }
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-h-[90vh] max-w-[92vw] overflow-y-auto rounded-2xl sm:max-w-md">
@@ -231,18 +254,34 @@ function CustomerHistory({ customer, onClose }: { customer: Customer; onClose: (
         <div className="grid grid-cols-3 gap-2 text-center text-xs">
           <div className="rounded-xl bg-secondary p-2">Comprado<br /><strong className="text-sm">{brl(s.total)}</strong></div>
           <div className="rounded-xl bg-secondary p-2">Pago<br /><strong className="text-sm text-success">{brl(s.paid)}</strong></div>
-          <div className="rounded-xl bg-secondary p-2">Em aberto<br /><strong className="text-sm text-warning">{brl(s.pending)}</strong></div>
+          <div className="rounded-xl bg-secondary p-2">Saldo devedor<br /><strong className="text-sm text-warning" data-testid="customer-balance">{brl(s.pending)}</strong></div>
         </div>
         {s.nextDue && <p className="text-xs text-muted-foreground">Próximo vencimento: {fmtDate(s.nextDue)}</p>}
+        {s.pending > 0 && !paying && (
+          <Button type="button" className="h-11 w-full rounded-xl" onClick={() => { setAmount(String(s.pending).replace(".", ",")); setPaying(true); }}>
+            Registrar pagamento do cliente
+          </Button>
+        )}
+        {paying && (
+          <div className="space-y-2 rounded-xl border p-3">
+            <p className="text-xs text-muted-foreground">Abate do saldo de {brl(s.pending)}, começando pelas compras mais antigas.</p>
+            <input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} className={field} aria-label="Valor do pagamento" />
+            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={field} aria-label="Data do pagamento" />
+            <div className="flex gap-2">
+              <Button type="button" variant="secondary" className="flex-1" onClick={() => setPaying(false)}>Cancelar</Button>
+              <Button type="button" className="flex-1" disabled={busy} onClick={pay}>Confirmar</Button>
+            </div>
+          </div>
+        )}
         <h3 className="mt-2 text-xs font-semibold uppercase text-muted-foreground">Compras</h3>
         <ul className="divide-y text-sm">
           {s.sales.length === 0 && <li className="py-2 text-muted-foreground">Nenhuma compra vinculada.</li>}
           {s.sales.map((x) => (
             <li key={x.id} className="flex items-center justify-between gap-2 py-2">
               <span className="min-w-0">
-                {x.product} · {x.quantity}x · {fmtDate(x.date)}
+                {x.items?.length ? x.product : `${x.product} · ${x.quantity}x`} · {fmtDate(x.date)}
                 {x.status ? <span className="text-destructive"> · {x.status}</span> :
-                  remaining(saleTotal(x), x) > 0 && <span className="text-warning"> · falta {brl(remaining(saleTotal(x), x))}</span>}
+                  remaining(saleTotal(x), x) > 0 ? <span className="text-warning"> · falta {brl(remaining(saleTotal(x), x))}</span> : <span className="text-success"> · pago</span>}
               </span>
               <span className="flex items-center gap-2"><strong>{brl(saleTotal(x))}</strong><WhatsAppButton sale={x} /></span>
             </li>
@@ -250,9 +289,9 @@ function CustomerHistory({ customer, onClose }: { customer: Customer; onClose: (
         </ul>
         <h3 className="mt-2 text-xs font-semibold uppercase text-muted-foreground">Pagamentos</h3>
         <ul className="divide-y text-sm">
-          {s.payments.length === 0 && <li className="py-2 text-muted-foreground">Nenhum pagamento.</li>}
-          {s.payments.map((p, i) => (
-            <li key={`${p.saleId}-${i}`} className="flex justify-between py-2"><span>{fmtDate(p.date)} · {p.product}</span><span>{brl(p.amount)}</span></li>
+          {grouped.size === 0 && <li className="py-2 text-muted-foreground">Nenhum pagamento.</li>}
+          {[...grouped.entries()].map(([k, p]) => (
+            <li key={k} className="flex justify-between gap-2 py-2"><span className="min-w-0">{fmtDate(p.date)} · {p.items.join(", ")}</span><span>{brl(p.amount)}</span></li>
           ))}
         </ul>
       </DialogContent>

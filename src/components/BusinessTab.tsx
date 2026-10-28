@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { money, roundMoney } from "@/lib/data-validation";
 import { ensureReminderFor } from "@/lib/notifications";
 import { brl, fmtDate, today, uid, update, useData } from "@/lib/store";
-import { changeSaleStatus, deleteSale, saveSale } from "@/lib/commerce";
+import { changeSaleStatus, customerSummary, deleteSale, findDuplicateCustomer, saveSale, upsertCustomer } from "@/lib/commerce";
 import { CustomerPicker, CustomersSection, ProductSelect, ProductsSection, SalesCharts, WhatsAppButton } from "@/components/CommerceSections";
 import {
   BIZ_CATEGORIES,
@@ -24,9 +24,15 @@ import {
   monthPeriod,
   paidOf,
   remaining,
+  lineSubtotal,
+  saleLines,
   saleProfit,
   saleTotal,
   statusOf,
+  withItems,
+  saleBalancePreview,
+  type Customer,
+  type SaleItem,
   type BizExpense,
   type BusinessData,
   type DueGroup,
@@ -349,7 +355,7 @@ function SalesSection({ sales }: { sales: Sale[] }) {
                 <li key={s.id} className="py-3 opacity-60">
                   <div className="flex items-start gap-2">
                     <div className="min-w-0 flex-1">
-                      <p className="truncate font-medium line-through">{s.product} · {s.quantity}x</p>
+                      <p className="truncate font-medium line-through">{s.items?.length ? s.product : `${s.product} · ${s.quantity}x`}</p>
                       <p className="text-xs text-muted-foreground">{s.customer} · {fmtDate(s.date)} · {s.status === "cancelada" ? "Cancelada" : "Devolvida"}</p>
                     </div>
                     <span className="font-semibold line-through">{brl(total)}</span>
@@ -360,7 +366,7 @@ function SalesSection({ sales }: { sales: Sale[] }) {
               <li key={s.id} className="py-3">
                 <div className="flex items-start gap-2">
                   <div className="min-w-0 flex-1">
-                    <p className="truncate font-medium">{s.product} · {s.quantity}x</p>
+                    <p className="whitespace-normal break-words font-medium">{s.items?.length ? s.product : `${s.product} · ${s.quantity}x`}</p>
                     <p className="text-xs text-muted-foreground">{s.customer} · {fmtDate(s.date)} · {s.paymentMethod}</p>
                     <p className={`text-xs ${statusTone(st)}`}>
                       {STATUS_LABEL[st]}{st !== "pago" && ` · falta ${brl(remaining(total, s))}`}
@@ -415,68 +421,97 @@ function SalesSection({ sales }: { sales: Sale[] }) {
   );
 }
 
+type Line = { key: string; productId?: string | undefined; product: string; qty: string; price: string; cost: string };
+const toStr = (n: number | undefined) => (n === undefined ? "" : String(n).replace(".", ","));
+const newLine = (): Line => ({ key: uid(), product: "", qty: "1", price: "", cost: "" });
+
 function SaleDialog({ sale, onClose }: { sale: Sale | null; onClose: () => void }) {
+  const data = useData();
+  const products = data.business.products ?? [];
   const initialStatus = sale ? statusOf(saleTotal(sale), sale) : "pendente";
-  const [qty, setQty] = useState(sale ? String(sale.quantity) : "1");
-  const [price, setPrice] = useState(sale ? String(sale.unitPrice).replace(".", ",") : "");
-  const [cost, setCost] = useState(sale?.unitCost !== undefined ? String(sale.unitCost).replace(".", ",") : "");
-  const [disc, setDisc] = useState(sale?.discount ? String(sale.discount).replace(".", ",") : "");
+  const [lines, setLines] = useState<Line[]>(() =>
+    sale
+      ? saleLines(sale).map((l) => ({ key: uid(), productId: l.productId, product: l.product, qty: String(l.quantity), price: toStr(l.unitPrice), cost: toStr(l.unitCost) }))
+      : [newLine()],
+  );
+  const [disc, setDisc] = useState(sale?.discount ? toStr(sale.discount) : "");
   const [status, setStatus] = useState(initialStatus);
-  const [partial, setPartial] = useState(sale && initialStatus === "parcial" ? String(paidOf(sale)).replace(".", ",") : "");
+  const [partial, setPartial] = useState(sale && initialStatus === "parcial" ? toStr(paidOf(sale)) : "");
   const [customerId, setCustomerId] = useState<string | undefined>(sale?.customerId);
   const [customerName, setCustomerName] = useState(sale?.customer ?? "");
-  const [productId, setProductId] = useState<string | undefined>(sale?.productId);
-  const [productName, setProductName] = useState(sale?.product ?? "");
+  const [busy, setBusy] = useState(false);
+  const [saleId] = useState(() => sale?.id ?? uid()); // stable id: a repeated submit updates, never duplicates
 
-  const q = Number(qty.replace(",", "."));
-  const preview = {
-    quantity: q > 0 ? q : 0,
-    unitPrice: money(price) || 0,
-    discount: disc.trim() ? money(disc) || 0 : 0,
-  };
-  const total = saleTotal(preview);
-  const costN = cost.trim() ? money(cost) : undefined;
-  const profit = costN !== undefined && !Number.isNaN(costN) ? roundMoney(total - preview.quantity * costN) : null;
+  const setLine = (key: string, patch: Partial<Line>) => setLines((ls) => ls.map((l) => (l.key === key ? { ...l, ...patch } : l)));
+  const parsed: SaleItem[] = lines.map((l) => {
+    const q = Number(l.qty.replace(",", "."));
+    return {
+      product: l.product,
+      quantity: q,
+      unitPrice: l.price.trim() ? money(l.price) : NaN,
+      ...(l.productId ? { productId: l.productId } : {}),
+      ...(l.cost.trim() ? { unitCost: money(l.cost) } : {}),
+    };
+  });
+  const discount = disc.trim() ? money(disc) || 0 : 0;
+  const total = saleTotal({ items: parsed.map((l) => ({ ...l, quantity: l.quantity > 0 ? l.quantity : 0, unitPrice: l.unitPrice >= 0 ? l.unitPrice : 0 })), quantity: 0, unitPrice: 0, discount });
+  const pr = saleProfit({ items: parsed, quantity: 0, unitPrice: 0, discount } as Sale);
+  // Existing customer: the one picked, or a registered customer matching the typed name.
+  const matchedId = customerId ?? (customerName.trim() ? findDuplicateCustomer(data.business.customers ?? [], customerName, undefined)?.id : undefined);
+  const paidNowPreview = status === "pago" ? total : status === "parcial" ? (money(partial) || 0) : 0;
+  const preview = saleBalancePreview(data.business, matchedId, sale?.id, total, paidNowPreview);
 
   function submit(e: React.FormEvent<HTMLFormElement>): void {
     e.preventDefault();
+    if (busy) return;
     const f = new FormData(e.currentTarget);
     const customer = customerName.trim();
-    const product = productName.trim();
     const date = String(f.get("date"));
-    const unitPrice = roundMoney(money(price));
-    const discount = disc.trim() ? roundMoney(money(disc)) : 0;
-    const unitCost = cost.trim() ? roundMoney(money(cost)) : undefined;
-    if (!customer || !product || !date) return void toast.error("Preencha cliente, produto e data.");
-    if (!(q > 0) || !(unitPrice >= 0) || !(discount >= 0) || (unitCost !== undefined && !(unitCost >= 0)))
-      return void toast.error("Confira quantidade, valores e desconto.");
-    const t = saleTotal({ quantity: q, unitPrice, discount });
-    if (!(t > 0)) return void toast.error("O total da venda precisa ser maior que zero.");
+    if (!customer || !date) return void toast.error("Preencha cliente e data.");
+    if (!(discount >= 0)) return void toast.error("Confira o desconto.");
     let payments = sale?.payments ?? [];
-    const want = status === "pago" ? t : status === "pendente" ? 0 : roundMoney(money(partial));
-    if (status === "parcial" && !(want > 0 && want < t)) return void toast.error("Valor recebido parcial deve ser maior que zero e menor que o total.");
-    if (roundMoney(paidOf({ payments })) !== want)
-      payments = want > 0 ? [{ date: payments[0]?.date ?? date, amount: want }] : [];
-    const next: Sale = {
-      id: sale?.id ?? uid(),
-      customer, product, quantity: q, unitPrice, discount, date,
-      ...(customerId ? { customerId } : {}),
-      ...(productId ? { productId } : {}),
-      paymentMethod: String(f.get("method")),
-      payments,
-      ...(unitCost !== undefined ? { unitCost } : {}),
-      ...(f.get("expected") ? { expectedDate: String(f.get("expected")) } : {}),
-      ...(String(f.get("notes")).trim() ? { notes: String(f.get("notes")).trim() } : {}),
-    };
+    let next: Sale;
+    try {
+      const t = saleTotal({ items: parsed, quantity: 0, unitPrice: 0, discount });
+      next = withItems({
+        id: saleId, customer, discount: roundMoney(discount), date,
+        paymentMethod: String(f.get("method")), payments,
+        ...(f.get("expected") ? { expectedDate: String(f.get("expected")) } : {}),
+        ...(String(f.get("notes")).trim() ? { notes: String(f.get("notes")).trim() } : {}),
+        ...(sale?.status ? { status: sale.status } : {}),
+      }, parsed);
+      if (!(t > 0)) throw new Error("O total da venda precisa ser maior que zero.");
+      const want = status === "pago" ? t : status === "pendente" ? 0 : roundMoney(money(partial));
+      if (status === "parcial" && !(want > 0 && want < t)) throw new Error("Valor recebido parcial deve ser maior que zero e menor que o total.");
+      if (roundMoney(paidOf({ payments })) !== want)
+        payments = want > 0 ? [{ date: payments[0]?.date ?? date, amount: want }] : [];
+      next = { ...next, payments };
+    } catch (err) {
+      return void toast.error(err instanceof Error ? err.message : "Confira os produtos.");
+    }
+    setBusy(true);
     const ok = setBiz((b) => {
-      if (!sale && date === today() && !productId) assertStockAvailable(b, date, q);
-      return saveSale(b, next, today());
+      // Always link the sale to one stable customer record (reuse existing, else create once).
+      let bb = b;
+      let cid = customerId && (b.customers ?? []).some((c) => c.id === customerId) ? customerId : undefined;
+      if (!cid) {
+        const existing = findDuplicateCustomer(b.customers ?? [], customer, undefined);
+        if (existing) cid = existing.id;
+        else {
+          const created: Customer = { id: uid(), name: customer, createdAt: today() };
+          bb = upsertCustomer(bb, created);
+          cid = created.id;
+        }
+      }
+      const linked: Sale = { ...next, customerId: cid };
+      const loose = parsed.filter((l) => !l.productId).reduce((a, l) => a + l.quantity, 0);
+      if (!sale && date === today() && loose > 0) assertStockAvailable(bb, date, loose);
+      return saveSale(bb, linked, today());
     });
+    setBusy(false);
     if (ok) {
       const linked = status !== "pago" && next.expectedDate;
-      toast.success(
-        (sale ? "Venda atualizada." : "Venda registrada.") + (linked ? " Também aparece em Agendados." : ""),
-      );
+      toast.success((sale ? "Venda atualizada." : "Venda registrada.") + (linked ? " Também aparece em Agendados." : ""));
       if (linked) void remind(next.expectedDate);
       onClose();
     }
@@ -489,32 +524,51 @@ function SaleDialog({ sale, onClose }: { sale: Sale | null; onClose: () => void 
         <form onSubmit={submit} className="space-y-3">
           <CustomerPicker value={customerId} onChange={(c) => { setCustomerId(c.id); setCustomerName(c.name); }} />
           {!customerId && (
-            <input placeholder="Ou digite só o nome (sem cadastro)" value={customerName} onChange={(e) => setCustomerName(e.target.value)} className={field} aria-label="Nome do cliente sem cadastro" />
+            <input placeholder="Ou digite o nome do cliente" value={customerName} onChange={(e) => setCustomerName(e.target.value)} className={field} aria-label="Nome do cliente" />
           )}
-          <ProductSelect value={productId} onChange={(p) => {
-            setProductId(p?.id);
-            if (p) {
-              setProductName(p.name);
-              setPrice(String(p.price).replace(".", ","));
-              setCost(p.cost !== undefined ? String(p.cost).replace(".", ",") : "");
-            }
-          }} />
-          <input placeholder="Produto ou serviço" value={productName} onChange={(e) => setProductName(e.target.value)} readOnly={!!productId} className={field} aria-label="Produto" />
-          <div className="grid grid-cols-2 gap-2">
-            <label className="text-xs text-muted-foreground">Quantidade
-              <input inputMode="decimal" value={qty} onChange={(e) => setQty(e.target.value)} className={field} /></label>
-            <label className="text-xs text-muted-foreground">Valor unitário (R$)
-              <input inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} className={field} /></label>
-            <label className="text-xs text-muted-foreground">Custo unitário (opcional)
-              <input inputMode="decimal" value={cost} onChange={(e) => setCost(e.target.value)} className={field} /></label>
-            <label className="text-xs text-muted-foreground">Desconto (R$)
-              <input inputMode="decimal" value={disc} onChange={(e) => setDisc(e.target.value)} className={field} /></label>
-          </div>
+          {matchedId && <CustomerSnapshot customerId={matchedId} excludeSaleId={sale?.id} />}
+          <p className="text-xs font-semibold uppercase text-muted-foreground">Novos produtos</p>
+          {lines.map((l, i) => {
+            const q = Number(l.qty.replace(",", "."));
+            const pPrice = money(l.price);
+            const sub = q > 0 && pPrice >= 0 ? lineSubtotal({ quantity: q, unitPrice: pPrice }) : 0;
+            return (
+              <div key={l.key} className="space-y-2 rounded-xl border p-3" data-testid="sale-line">
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>Item {i + 1}</span>
+                  {lines.length > 1 && (
+                    <button type="button" aria-label={`Remover item ${i + 1}`} className="text-destructive" onClick={() => setLines((ls) => ls.filter((x) => x.key !== l.key))}>
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+                <ProductSelect value={l.productId} onChange={(p) => setLine(l.key, p
+                  ? { productId: p.id, product: p.name, price: toStr(p.price), cost: toStr(p.cost) }
+                  : { productId: undefined })} />
+                <input placeholder="Produto ou serviço" value={l.product} onChange={(e) => setLine(l.key, { product: e.target.value })} readOnly={!!l.productId} className={field} aria-label={`Produto ${i + 1}`} />
+                <div className="grid grid-cols-3 gap-2">
+                  <label className="text-xs text-muted-foreground">Qtd.
+                    <input inputMode="decimal" value={l.qty} onChange={(e) => setLine(l.key, { qty: e.target.value })} className={field} aria-label={`Quantidade ${i + 1}`} /></label>
+                  <label className="text-xs text-muted-foreground">Unitário
+                    <input inputMode="decimal" value={l.price} onChange={(e) => setLine(l.key, { price: e.target.value })} className={field} aria-label={`Valor unitário ${i + 1}`} /></label>
+                  <label className="text-xs text-muted-foreground">Custo
+                    <input inputMode="decimal" value={l.cost} placeholder="opc." onChange={(e) => setLine(l.key, { cost: e.target.value })} className={field} aria-label={`Custo ${i + 1}`} /></label>
+                </div>
+                <p className="text-right text-sm">Subtotal: <strong>{brl(sub)}</strong></p>
+              </div>
+            );
+          })}
+          <Button type="button" variant="secondary" className="h-11 w-full rounded-xl" onClick={() => setLines((ls) => [...ls, newLine()])}>
+            <Plus className="h-4 w-4" /> Adicionar produto
+          </Button>
+          {products.length === 0 && <p className="text-xs text-muted-foreground">Cadastre produtos na aba Produtos para usar os preços salvos.</p>}
+          <label className="block text-xs text-muted-foreground">Desconto (R$)
+            <input inputMode="decimal" value={disc} onChange={(e) => setDisc(e.target.value)} className={field} /></label>
           <div className="rounded-xl bg-secondary p-3 text-sm">
-            <p>Total: <strong>{brl(total)}</strong></p>
+            <p>Total da venda: <strong data-testid="sale-total">{brl(total)}</strong></p>
             <p className="text-muted-foreground">
-              {profit === null ? "Informe o custo para calcular o lucro." :
-                `Lucro estimado: ${brl(profit)}${total > 0 ? ` · margem ${((profit / total) * 100).toFixed(1)}%` : ""}`}
+              {pr === null ? "Informe o custo de todos os itens para calcular o lucro." :
+                `Lucro estimado: ${brl(pr.profit)}${total > 0 ? ` · margem ${(pr.margin * 100).toFixed(1)}%` : ""}`}
             </p>
           </div>
           <label className="block text-xs text-muted-foreground">Data da venda
@@ -533,7 +587,13 @@ function SaleDialog({ sale, onClose }: { sale: Sale | null; onClose: () => void 
           <label className="block text-xs text-muted-foreground">Previsão de recebimento (opcional)
             <input name="expected" type="date" defaultValue={sale?.expectedDate} className={field} /></label>
           <textarea name="notes" placeholder="Observações (opcional)" defaultValue={sale?.notes} className={area} rows={2} />
-          <Button type="submit" className="h-12 w-full rounded-xl">Salvar</Button>
+          <div className="space-y-1 rounded-xl border p-3 text-sm" data-testid="balance-preview">
+            <div className="flex justify-between"><span>Saldo anterior</span><strong>{brl(preview.previous)}</strong></div>
+            <div className="flex justify-between"><span>Nova compra</span><strong>{brl(preview.newPurchase)}</strong></div>
+            <div className="flex justify-between"><span>Pagamento agora</span><strong className="text-success">{brl(preview.paidNow)}</strong></div>
+            <div className="flex justify-between border-t pt-1"><span>Novo saldo devedor</span><strong className="text-warning">{brl(preview.newBalance)}</strong></div>
+          </div>
+          <Button type="submit" disabled={busy} className="h-12 w-full rounded-xl">Salvar · {brl(total)}</Button>
         </form>
       </DialogContent>
     </Dialog>
@@ -818,5 +878,53 @@ function ExpenseDialog({ expense, onClose }: { expense: BizExpense | null; onClo
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** Read-only history of an existing customer, shown inside the sale form. */
+function CustomerSnapshot({ customerId, excludeSaleId }: { customerId: string; excludeSaleId?: string | undefined }) {
+  const data = useData();
+  const all = customerSummary(data.business, customerId);
+  const sales = all.sales.filter((x) => x.id !== excludeSaleId);
+  if (sales.length === 0) return <p className="rounded-xl bg-secondary p-3 text-xs text-muted-foreground">Primeira compra deste cliente.</p>;
+  const active = sales.filter((x) => !x.status);
+  const totalC = active.reduce((a, x) => a + Math.round(saleTotal(x) * 100), 0);
+  const paidC = active.reduce((a, x) => a + Math.round(paidOf(x) * 100), 0);
+  const payments = all.payments.filter((p) => p.saleId !== excludeSaleId);
+  return (
+    <div className="space-y-2 rounded-xl bg-secondary p-3 text-sm" data-testid="customer-snapshot">
+      <p className="text-xs font-semibold uppercase text-muted-foreground">Histórico do cliente</p>
+      <div className="grid grid-cols-3 gap-2 text-center text-xs">
+        <div>Comprado<br /><strong className="text-sm">{brl(totalC / 100)}</strong></div>
+        <div>Pago<br /><strong className="text-sm text-success">{brl(paidC / 100)}</strong></div>
+        <div>Falta<br /><strong className="text-sm text-warning">{brl((totalC - paidC) / 100)}</strong></div>
+      </div>
+      <ul className="max-h-48 divide-y overflow-y-auto">
+        {sales.map((x) => {
+          const open = x.status ? 0 : remaining(saleTotal(x), x);
+          return (
+            <li key={x.id} className="py-2">
+              <div className="flex justify-between gap-2 text-xs text-muted-foreground">
+                <span>{fmtDate(x.date)}</span>
+                <span className={x.status ? "text-destructive" : open > 0 ? "text-warning" : "text-success"}>
+                  {x.status ? x.status : open > 0 ? `falta ${brl(open)}` : "pago"}
+                </span>
+              </div>
+              {saleLines(x).map((l, i) => (
+                <div key={i} className="flex justify-between gap-2">
+                  <span className="min-w-0">{l.quantity}x {l.product}</span>
+                  <span>{brl(lineSubtotal(l))}</span>
+                </div>
+              ))}
+            </li>
+          );
+        })}
+      </ul>
+      {payments.length > 0 && (
+        <p className="text-xs text-muted-foreground">
+          Pagamentos: {payments.map((p) => `${fmtDate(p.date)} ${brl(p.amount)}`).join(" · ")}
+        </p>
+      )}
+    </div>
   );
 }
