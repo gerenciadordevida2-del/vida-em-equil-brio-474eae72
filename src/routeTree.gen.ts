@@ -17,6 +17,7 @@ import { Route as AuthenticatedAjustesRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedAssistenteRouteImport } from './routes/_authenticated/assistente'
 import { Route as AuthenticatedFinancasRouteImport } from './routes/_authenticated/financas'
 import { Route as AuthenticatedMetasRouteImport } from './routes/_authenticated/metas'
+import { Route as AuthenticatedPlanosRouteImport } from './routes/_authenticated/planos'
 import { Route as AuthenticatedRotinaRouteImport } from './routes/_authenticated/rotina'
 import { Route as AuthenticatedTreinosRouteImport } from './routes/_authenticated/treinos'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
@@ -61,6 +62,11 @@ const AuthenticatedMetasRoute = AuthenticatedMetasRouteImport.update({
   path: '/metas',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedPlanosRoute = AuthenticatedPlanosRouteImport.update({
+  id: '/planos',
+  path: '/planos',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedRotinaRoute = AuthenticatedRotinaRouteImport.update({
   id: '/rotina',
   path: '/rotina',
@@ -90,6 +96,7 @@ export interface FileRoutesByFullPath {
   '/assistente': typeof AuthenticatedAssistenteRoute
   '/financas': typeof AuthenticatedFinancasRoute
   '/metas': typeof AuthenticatedMetasRoute
+  '/planos': typeof AuthenticatedPlanosRoute
   '/rotina': typeof AuthenticatedRotinaRoute
   '/treinos': typeof AuthenticatedTreinosRoute
   '/api/chat': typeof ApiChatRoute
@@ -102,6 +109,7 @@ export interface FileRoutesByTo {
   '/assistente': typeof AuthenticatedAssistenteRoute
   '/financas': typeof AuthenticatedFinancasRoute
   '/metas': typeof AuthenticatedMetasRoute
+  '/planos': typeof AuthenticatedPlanosRoute
   '/rotina': typeof AuthenticatedRotinaRoute
   '/treinos': typeof AuthenticatedTreinosRoute
   '/api/chat': typeof ApiChatRoute
@@ -117,6 +125,7 @@ export interface FileRoutesById {
   '/_authenticated/assistente': typeof AuthenticatedAssistenteRoute
   '/_authenticated/financas': typeof AuthenticatedFinancasRoute
   '/_authenticated/metas': typeof AuthenticatedMetasRoute
+  '/_authenticated/planos': typeof AuthenticatedPlanosRoute
   '/_authenticated/rotina': typeof AuthenticatedRotinaRoute
   '/_authenticated/treinos': typeof AuthenticatedTreinosRoute
   '/api/chat': typeof ApiChatRoute
@@ -133,6 +142,7 @@ export interface FileRouteTypes {
     | '/assistente'
     | '/financas'
     | '/metas'
+    | '/planos'
     | '/rotina'
     | '/treinos'
     | '/api/chat'
@@ -145,6 +155,7 @@ export interface FileRouteTypes {
     | '/assistente'
     | '/financas'
     | '/metas'
+    | '/planos'
     | '/rotina'
     | '/treinos'
     | '/api/chat'
@@ -159,6 +170,7 @@ export interface FileRouteTypes {
     | '/_authenticated/assistente'
     | '/_authenticated/financas'
     | '/_authenticated/metas'
+    | '/_authenticated/planos'
     | '/_authenticated/rotina'
     | '/_authenticated/treinos'
     | '/api/chat'
@@ -231,6 +243,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedMetasRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/planos': {
+      id: '/_authenticated/planos'
+      path: '/planos'
+      fullPath: '/planos'
+      preLoaderRoute: typeof AuthenticatedPlanosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/rotina': {
       id: '/_authenticated/rotina'
       path: '/rotina'
@@ -268,6 +287,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAssistenteRoute: typeof AuthenticatedAssistenteRoute
   AuthenticatedFinancasRoute: typeof AuthenticatedFinancasRoute
   AuthenticatedMetasRoute: typeof AuthenticatedMetasRoute
+  AuthenticatedPlanosRoute: typeof AuthenticatedPlanosRoute
   AuthenticatedRotinaRoute: typeof AuthenticatedRotinaRoute
   AuthenticatedTreinosRoute: typeof AuthenticatedTreinosRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
@@ -279,6 +299,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAssistenteRoute: AuthenticatedAssistenteRoute,
   AuthenticatedFinancasRoute: AuthenticatedFinancasRoute,
   AuthenticatedMetasRoute: AuthenticatedMetasRoute,
+  AuthenticatedPlanosRoute: AuthenticatedPlanosRoute,
   AuthenticatedRotinaRoute: AuthenticatedRotinaRoute,
   AuthenticatedTreinosRoute: AuthenticatedTreinosRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
