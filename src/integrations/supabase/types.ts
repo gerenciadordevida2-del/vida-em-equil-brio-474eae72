@@ -123,8 +123,12 @@ export type Database = {
           billing_interval: string
           code: string
           created_at: string
+          description: string
+          features: Json
           id: string
+          limits: Json
           name: string
+          price_annual_cents: number | null
           price_cents: number
         }
         Insert: {
@@ -132,8 +136,12 @@ export type Database = {
           billing_interval?: string
           code: string
           created_at?: string
+          description?: string
+          features?: Json
           id?: string
+          limits?: Json
           name: string
+          price_annual_cents?: number | null
           price_cents?: number
         }
         Update: {
@@ -141,8 +149,12 @@ export type Database = {
           billing_interval?: string
           code?: string
           created_at?: string
+          description?: string
+          features?: Json
           id?: string
+          limits?: Json
           name?: string
+          price_annual_cents?: number | null
           price_cents?: number
         }
         Relationships: []
@@ -173,6 +185,7 @@ export type Database = {
       }
       subscriptions: {
         Row: {
+          billing_interval: string
           created_at: string
           current_period_end: string | null
           current_period_start: string | null
@@ -181,10 +194,13 @@ export type Database = {
           provider: string
           provider_subscription_id: string | null
           status: string
+          trial_end: string | null
+          trial_start: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
+          billing_interval?: string
           created_at?: string
           current_period_end?: string | null
           current_period_start?: string | null
@@ -193,10 +209,13 @@ export type Database = {
           provider?: string
           provider_subscription_id?: string | null
           status?: string
+          trial_end?: string | null
+          trial_start?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
+          billing_interval?: string
           created_at?: string
           current_period_end?: string | null
           current_period_start?: string | null
@@ -205,6 +224,8 @@ export type Database = {
           provider?: string
           provider_subscription_id?: string | null
           status?: string
+          trial_end?: string | null
+          trial_start?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -305,16 +326,31 @@ export type Database = {
         Returns: boolean
       }
       bootstrap_owner: { Args: never; Returns: boolean }
+      cancel_trial: { Args: never; Returns: boolean }
       consume_chat_quota: {
         Args: { max_per_day?: number; max_per_minute?: number }
         Returns: boolean
       }
+      expire_trials: { Args: never; Returns: number }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
         Returns: boolean
+      }
+      my_current_plan: {
+        Args: never
+        Returns: {
+          billing_interval: string
+          plan_code: string
+          plan_name: string
+          price_annual_cents: number
+          price_cents: number
+          status: string
+          trial_end: string
+          trial_start: string
+        }[]
       }
       my_roles: {
         Args: never
@@ -323,6 +359,10 @@ export type Database = {
       save_app_data: {
         Args: { expected_revision: number; payload: Json }
         Returns: number
+      }
+      start_trial: {
+        Args: { _interval?: string; _plan_code: string }
+        Returns: string
       }
     }
     Enums: {
