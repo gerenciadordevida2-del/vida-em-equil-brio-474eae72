@@ -27,4 +27,6 @@
 - [x] Aplicar migração 0003 (plans, subscriptions, payment_events, vip_grants) — base de assinaturas aprovada, sem cobranças.
 - [x] Finalização: 98/98 testes, tsgo limpo, build de produção OK; verificação visual autenticada pendente (requer login da usuária no preview).
 - [x] Conectar Ajustes à tela de planos e exibir o acesso já existente ao proprietário, sem alterar permissões.
-- [ ] Finalizar planos: executar testes e conferir navegação, preços e apresentação com sessão autenticada; sem pagamentos reais.
+- [x] Finalizar acessos aos planos e proprietário; 105 testes aprovados, preview sem erros, páginas privadas redirecionam ao login.
+- [x] Restringir execução das funções de teste grátis: adesão/cancelamento/consulta autenticados; expiração global exclusiva do servidor (migração 0005).
+- [ ] Conferir planos e Ajustes com sessão real, incluindo apresentação de preços e adesão/cancelamento: bloqueado porque não há conta correspondente à usuária para sessão automática; requer login no preview.
