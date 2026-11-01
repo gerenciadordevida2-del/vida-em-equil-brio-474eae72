@@ -26,3 +26,5 @@
 - [x] Sincronizar do ZIP de referência a venda com vários produtos (SaleItem/withItems + telas), preservando as correções já aplicadas no projeto.
 - [x] Aplicar migração 0003 (plans, subscriptions, payment_events, vip_grants) — base de assinaturas aprovada, sem cobranças.
 - [x] Finalização: 98/98 testes, tsgo limpo, build de produção OK; verificação visual autenticada pendente (requer login da usuária no preview).
+- [x] Conectar Ajustes à tela de planos e exibir o acesso já existente ao proprietário, sem alterar permissões.
+- [ ] Finalizar planos: executar testes e conferir navegação, preços e apresentação com sessão autenticada; sem pagamentos reais.

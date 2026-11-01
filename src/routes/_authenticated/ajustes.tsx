@@ -1,13 +1,15 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useRef, useState } from "react";
 import { Download, Upload, Trash2, Smartphone, LogOut, Crown, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { Page, Card } from "@/components/AppShell";
+import { Button } from "@/components/ui/button";
 import { exportBackup, importBackup, clearAll } from "@/lib/store";
 import { useProfile, useUpdateProfile, displayNameOf, avatarOf } from "@/lib/profile";
-import { useMyRoles, planOf, PLAN_LABELS } from "@/lib/roles";
+import { useMyRoles } from "@/lib/roles";
+import { currentPlanQuery, effectivePlan, EFFECTIVE_PLAN_LABELS } from "@/lib/plans";
 
 export const Route = createFileRoute("/_authenticated/ajustes")({
   head: () => ({
@@ -60,12 +62,11 @@ function OwnerCard() {
         <p className="text-sm text-muted-foreground">
           Você tem acesso administrativo e uso da IA sem os limites dos clientes.
         </p>
-        <Link
-          to="/admin"
+        <Button asChild
           className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary font-semibold text-primary-foreground"
         >
-          <ShieldCheck className="h-5 w-5" /> Abrir área do proprietário
-        </Link>
+          <Link to="/admin"><ShieldCheck className="h-5 w-5" /> Abrir área do proprietário</Link>
+        </Button>
       </Card>
     );
 
@@ -78,13 +79,14 @@ function OwnerCard() {
         Se este aplicativo ainda não tem proprietário, a primeira conta a confirmar aqui passa a
         ser a dona, com acesso administrativo. Essa verificação acontece no servidor.
       </p>
-      <button
+      <Button
         onClick={claim}
         disabled={claiming}
+        variant="secondary"
         className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border bg-secondary font-semibold disabled:opacity-50"
       >
         {claiming ? "Verificando…" : "Tornar-me proprietário"}
-      </button>
+      </Button>
     </Card>
   );
 }
@@ -159,6 +161,8 @@ function Ajustes() {
   const queryClient = useQueryClient();
   const { user } = Route.useRouteContext();
   const { data: profile } = useProfile(user);
+  const { roles, isLoading: rolesLoading } = useMyRoles();
+  const currentPlan = useQuery(currentPlanQuery);
   const updateProfile = useUpdateProfile(user.id);
   const currentName = displayNameOf(profile, user);
   const avatar = avatarOf(profile, user);
@@ -213,6 +217,22 @@ function Ajustes() {
           <LogOut className="h-5 w-5" /> Sair
         </button>
       </Card>
+      <Card className="mb-4 space-y-3">
+        <h2 className="flex items-center gap-2 font-semibold">
+          <Crown className="h-4 w-4 text-primary" /> Planos e assinatura
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          {rolesLoading || currentPlan.isPending
+            ? "Carregando seu plano…"
+            : currentPlan.isError
+              ? "Não foi possível consultar seu plano agora."
+              : `Seu plano: ${EFFECTIVE_PLAN_LABELS[effectivePlan(roles, currentPlan.data ?? null)]}`}
+        </p>
+        <Button asChild className={`${btn} whitespace-normal`}>
+          <Link to="/planos"><Crown className="h-5 w-5" /> Ver planos e teste grátis</Link>
+        </Button>
+      </Card>
+      <OwnerCard />
       <GroqCard />
       <Card className="mb-4 space-y-3">
         <h2 className="font-semibold">Backup</h2>
