@@ -116,7 +116,7 @@ function Planos() {
   }
 
   return (
-    <Page title="Planos" subtitle="Escolha o plano ideal para você">
+    <Page title="Planos" subtitle="Experimente Premium ou Negócio por 7 dias grátis">
       {/* Plano atual */}
       <Card className="mb-4 space-y-2">
         <h2 className="flex items-center gap-2 font-semibold">
