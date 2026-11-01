@@ -30,5 +30,5 @@
 - [x] Finalizar acessos aos planos e proprietário; 109 testes aprovados em 16 arquivos, preview sem erros, páginas privadas redirecionam ao login.
 - [x] Restringir execução das funções de teste grátis: adesão/cancelamento/consulta autenticados; expiração global exclusiva do servidor (migração 0005).
 - [ ] Conferir planos e Ajustes com sessão real, incluindo apresentação de preços e adesão/cancelamento: bloqueado porque não há conta correspondente à usuária para sessão automática; requer login no preview.
-- [ ] Corrigir preços e condição de desconto anual usando o catálogo existente, com testes de periodicidade.
-- [ ] Implementar e validar Mercado Pago Checkout Pro e webhook: auditar credenciais, preços e integração antes de ativar cobranças.
+- [x] Corrigir comparação anual com 12 mensalidades, economia e percentual; retirar “2 meses grátis” incorreto. 113 testes aprovados; nenhuma promoção mensal/preço original separado existe no catálogo.
+- [ ] Implementar e validar Mercado Pago Checkout Pro e webhook: bloqueado por ausência de conexão/Access Token Mercado Pago e segredo de webhook; nenhum checkout ou retorno existe. Checkout Pro precisa de regra de renovação explícita (não cria recorrência automática). Valores promocionais mensais e preços originais separados não estão definidos. Conferência visual autenticada bloqueada por ausência de conta correspondente; requer login no preview.
