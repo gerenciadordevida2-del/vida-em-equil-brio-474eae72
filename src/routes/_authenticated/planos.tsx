@@ -4,6 +4,8 @@ import { useState } from "react";
 import { Check, Crown, Sparkles, Clock, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Page, Card } from "@/components/AppShell";
+import { Button } from "@/components/ui/button";
+import { annualSavings, allAnnualPlansGiveTwoMonths } from "@/lib/plan-pricing";
 import { supabase } from "@/integrations/supabase/client";
 import { useMyRoles } from "@/lib/roles";
 import {
@@ -66,7 +68,7 @@ function Planos() {
       `Experimente ${plan.name} por 7 dias grátis.\n\n` +
         `• Começa agora e termina em 7 dias.\n` +
         `• Após o teste: ${formatBRL(price)}/${cycle}.\n` +
-        `• Nenhuma cobrança agora: a assinatura paga só começa se você autorizar e cadastrar um meio de pagamento na etapa de contratação (disponível em breve).\n` +
+        `• Nenhuma cobrança agora: o pagamento pelo Mercado Pago ainda não está configurado. O teste não gera cobrança nem renovação automática.\n` +
         `• Você pode cancelar durante o teste e manter o acesso até o fim do período, sem cobrança futura.\n` +
         `• O teste grátis pode ser usado uma única vez.\n\n` +
         `Iniciar o teste grátis?`,
@@ -151,13 +153,13 @@ function Planos() {
               se você autorizar a assinatura e cadastrar um meio de pagamento.
             </p>
             {currentPlan.status === "trialing" && (
-              <button
+              <Button variant="outline"
                 onClick={cancelTrial}
                 disabled={busy}
                 className="mt-2 flex h-10 w-full items-center justify-center gap-2 rounded-xl border text-sm font-semibold disabled:opacity-50"
               >
                 <XCircle className="h-4 w-4" /> Cancelar teste (sem cobrança)
-              </button>
+              </Button>
             )}
           </div>
         )}
@@ -166,15 +168,17 @@ function Planos() {
       {/* Periodicidade */}
       <div className="mb-4 grid grid-cols-2 gap-2">
         {(["monthly", "annual"] as const).map((i) => (
-          <button
+          <Button
             key={i}
+            variant={interval === i ? "default" : "secondary"}
+            aria-pressed={interval === i}
             onClick={() => setInterval_(i)}
             className={`h-11 rounded-xl border text-sm font-semibold ${
               interval === i ? "bg-primary text-primary-foreground" : "bg-secondary"
             }`}
           >
-            {i === "annual" ? "Anual (2 meses grátis)" : "Mensal"}
-          </button>
+            {i === "annual" ? (allAnnualPlansGiveTwoMonths(plans.data ?? []) ? "Anual (2 meses grátis)" : "Anual") : "Mensal"}
+          </Button>
         ))}
       </div>
 
@@ -192,7 +196,8 @@ function Planos() {
           const isCurrent =
             (currentPlan?.plan_code === plan.code) || (effective === "free" && plan.code === "free");
           const paid = plan.price_cents > 0;
-          const canTrial = paid && !trialUsed.data && !currentPlan && !isAdmin;
+          const canTrial = paid && trialUsed.isSuccess && current.isSuccess && !trialUsed.data && !currentPlan && !isAdmin;
+          const savings = interval === "annual" ? annualSavings(plan.price_cents, plan.price_annual_cents) : null;
           return (
             <Card key={plan.id} className="space-y-3">
               <div className="flex items-start justify-between gap-2">
@@ -206,12 +211,23 @@ function Planos() {
                   </span>
                 )}
               </div>
+              {savings && (
+                <p className="text-sm text-muted-foreground">
+                  <s>{formatBRL(savings.referenceCents)}</s> em 12 mensalidades
+                </p>
+              )}
               <p className="text-2xl font-bold text-primary">
                 {formatBRL(priceFor(plan, interval))}
                 <span className="text-sm font-normal text-muted-foreground">
                   /{interval === "annual" ? "ano" : "mês"}
                 </span>
               </p>
+              {savings && (
+                <p className="text-sm font-semibold text-primary">
+                  {savings.percent.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}% de desconto anual · Economia de {formatBRL(savings.savingsCents)}
+                  {savings.twoMonthsFree ? " · 2 meses grátis" : ""}
+                </p>
+              )}
               {paid && interval === "monthly" && plan.price_annual_cents != null && (
                 <p className="text-xs text-muted-foreground">
                   ou {formatBRL(plan.price_annual_cents)}/ano no plano anual
@@ -226,19 +242,22 @@ function Planos() {
                 ))}
               </ul>
               {paid && canTrial && (
-                <button
+                <Button
                   onClick={() => startTrial(plan)}
                   disabled={busy}
                   className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary font-semibold text-primary-foreground disabled:opacity-50"
                 >
                   <Sparkles className="h-5 w-5" /> Testar grátis por 7 dias
-                </button>
+                </Button>
               )}
-              {paid && !canTrial && !isCurrent && (
+              {paid && !canTrial && !isCurrent && trialUsed.data && !currentPlan && (
                 <p className="rounded-xl bg-secondary p-2 text-center text-xs text-muted-foreground">
-                  {trialUsed.data && !currentPlan
-                    ? "Você já utilizou seu teste grátis."
-                    : "Contratação disponível em breve."}
+                  Você já utilizou seu teste grátis.
+                </p>
+              )}
+              {paid && !isAdmin && (
+                <p className="text-sm text-muted-foreground">
+                  Contratação indisponível: Mercado Pago não configurado. Nenhuma cobrança ou renovação automática será feita.
                 </p>
               )}
             </Card>
@@ -249,10 +268,11 @@ function Planos() {
       <Card className="mt-4 space-y-2">
         <h3 className="font-semibold">Sobre a contratação</h3>
         <p className="text-sm text-muted-foreground">
-          A contratação dos planos pagos estará disponível em uma etapa futura, com pagamento
-          processado de forma segura. Nenhuma cobrança é feita agora: o teste grátis de 7 dias não
-          exige pagamento e, ao terminar sem uma assinatura paga, você volta ao plano Gratuito com
-          todos os seus dados preservados.
+          O Mercado Pago ainda não está conectado neste projeto. A contratação paga depende da configuração
+          das credenciais, do checkout e da confirmação segura dos pagamentos. Nenhuma cobrança é feita agora:
+          o teste grátis de 7 dias não exige pagamento e, ao terminar sem uma assinatura paga, você volta
+          ao plano Gratuito com todos os seus dados preservados. A economia anual compara o valor do ano
+          com 12 mensalidades do catálogo; não há promoção mensal ou preço original separado configurados.
         </p>
       </Card>
     </Page>

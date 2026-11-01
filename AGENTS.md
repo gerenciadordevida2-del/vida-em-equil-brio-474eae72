@@ -23,6 +23,7 @@
 - Subscription base (migration 0003): `plans`, `subscriptions` (one active per user via partial unique index), `payment_events` (idempotent on mp_event_id), `vip_grants` audit trail — preparation only; no payments, checkout, or webhooks exist yet, and effective plan resolution must stay server-side (owner → active subscription → VIP → free).
 - Commercial plans and trials reuse the existing catalog and subscription RPCs; Settings links to `/planos` and uses `my_current_plan` plus roles only for display, never authorization — avoids duplicated plan state or changes to existing AI quotas.
 - Trial RPCs revoke PUBLIC/anon execution; only service_role can run global trial expiry — prevents visitors and ordinary users from mutating other users' subscription states.
+- Annual pricing comparisons use the pure src/lib/plan-pricing.ts module against twelve catalog monthly payments; checkout stays unavailable until a verified payment integration exists, preventing fictitious discounts or charges.
 
 - Cloud sync (src/lib/cloud-sync.ts): every local change marks a per-user "dirty" flag with its base revision before any network call; pending data is resent only when the cloud is still at that revision, otherwise the user chooses between versions. Why: never overwrite device or cloud data silently.
 - /api/chat must call authorizeChat (session check + consume_chat_quota) before handleChat. Why: the AI key and quota are server-side and visitors must not use them.
