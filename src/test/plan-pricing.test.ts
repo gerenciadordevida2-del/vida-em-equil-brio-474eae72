@@ -2,11 +2,11 @@ import { describe, expect, it } from "vitest";
 import { annualSavings, allAnnualPlansGiveTwoMonths } from "@/lib/plan-pricing";
 
 describe("descontos comprovados pelo catálogo", () => {
-  it("Premium anual economiza 5880 centavos em relação a 12 mensalidades", () => {
+  it("Premium anual economiza 5890 centavos em relação a 12 mensalidades", () => {
     const result = annualSavings(1490, 11990);
     expect(result?.referenceCents).toBe(17880);
-    expect(result?.savingsCents).toBe(5880);
-    expect(result?.percent).toBeCloseTo(32.8859, 4);
+    expect(result?.savingsCents).toBe(5890);
+    expect(result?.percent).toBeCloseTo(32.9418, 4);
     expect(result?.twoMonthsFree).toBe(false);
   });
   it("Negócio anual economiza 5890 centavos, mas não equivale a dois meses grátis", () => {
