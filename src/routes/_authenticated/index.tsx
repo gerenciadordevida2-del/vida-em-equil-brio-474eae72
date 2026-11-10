@@ -20,6 +20,7 @@ import {
   Circle,
   Wallet,
   Activity,
+  TrendingUp,
 } from "lucide-react";
 import { Card } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
@@ -167,6 +168,11 @@ function Index() {
             {upcoming.length > 0 && (
               <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-warning" />
             )}
+          </Button>
+          <Button asChild variant="ghost" size="icon" className="rounded-full">
+            <Link to="/investimentos" aria-label="Investimentos">
+              <TrendingUp />
+            </Link>
           </Button>
           <Button asChild variant="ghost" size="icon" className="rounded-full">
             <Link to="/ajustes" aria-label="Ajustes">

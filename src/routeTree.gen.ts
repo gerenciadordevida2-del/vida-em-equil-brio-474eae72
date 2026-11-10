@@ -16,6 +16,7 @@ import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedAjustesRouteImport } from './routes/_authenticated/ajustes'
 import { Route as AuthenticatedAssistenteRouteImport } from './routes/_authenticated/assistente'
 import { Route as AuthenticatedFinancasRouteImport } from './routes/_authenticated/financas'
+import { Route as AuthenticatedInvestimentosRouteImport } from './routes/_authenticated/investimentos'
 import { Route as AuthenticatedMetasRouteImport } from './routes/_authenticated/metas'
 import { Route as AuthenticatedPlanosRouteImport } from './routes/_authenticated/planos'
 import { Route as AuthenticatedRotinaRouteImport } from './routes/_authenticated/rotina'
@@ -57,6 +58,12 @@ const AuthenticatedFinancasRoute = AuthenticatedFinancasRouteImport.update({
   path: '/financas',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedInvestimentosRoute =
+  AuthenticatedInvestimentosRouteImport.update({
+    id: '/investimentos',
+    path: '/investimentos',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedMetasRoute = AuthenticatedMetasRouteImport.update({
   id: '/metas',
   path: '/metas',
@@ -95,6 +102,7 @@ export interface FileRoutesByFullPath {
   '/ajustes': typeof AuthenticatedAjustesRoute
   '/assistente': typeof AuthenticatedAssistenteRoute
   '/financas': typeof AuthenticatedFinancasRoute
+  '/investimentos': typeof AuthenticatedInvestimentosRoute
   '/metas': typeof AuthenticatedMetasRoute
   '/planos': typeof AuthenticatedPlanosRoute
   '/rotina': typeof AuthenticatedRotinaRoute
@@ -108,6 +116,7 @@ export interface FileRoutesByTo {
   '/ajustes': typeof AuthenticatedAjustesRoute
   '/assistente': typeof AuthenticatedAssistenteRoute
   '/financas': typeof AuthenticatedFinancasRoute
+  '/investimentos': typeof AuthenticatedInvestimentosRoute
   '/metas': typeof AuthenticatedMetasRoute
   '/planos': typeof AuthenticatedPlanosRoute
   '/rotina': typeof AuthenticatedRotinaRoute
@@ -124,6 +133,7 @@ export interface FileRoutesById {
   '/_authenticated/ajustes': typeof AuthenticatedAjustesRoute
   '/_authenticated/assistente': typeof AuthenticatedAssistenteRoute
   '/_authenticated/financas': typeof AuthenticatedFinancasRoute
+  '/_authenticated/investimentos': typeof AuthenticatedInvestimentosRoute
   '/_authenticated/metas': typeof AuthenticatedMetasRoute
   '/_authenticated/planos': typeof AuthenticatedPlanosRoute
   '/_authenticated/rotina': typeof AuthenticatedRotinaRoute
@@ -141,6 +151,7 @@ export interface FileRouteTypes {
     | '/ajustes'
     | '/assistente'
     | '/financas'
+    | '/investimentos'
     | '/metas'
     | '/planos'
     | '/rotina'
@@ -154,6 +165,7 @@ export interface FileRouteTypes {
     | '/ajustes'
     | '/assistente'
     | '/financas'
+    | '/investimentos'
     | '/metas'
     | '/planos'
     | '/rotina'
@@ -169,6 +181,7 @@ export interface FileRouteTypes {
     | '/_authenticated/ajustes'
     | '/_authenticated/assistente'
     | '/_authenticated/financas'
+    | '/_authenticated/investimentos'
     | '/_authenticated/metas'
     | '/_authenticated/planos'
     | '/_authenticated/rotina'
@@ -236,6 +249,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedFinancasRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/investimentos': {
+      id: '/_authenticated/investimentos'
+      path: '/investimentos'
+      fullPath: '/investimentos'
+      preLoaderRoute: typeof AuthenticatedInvestimentosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/metas': {
       id: '/_authenticated/metas'
       path: '/metas'
@@ -286,6 +306,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAjustesRoute: typeof AuthenticatedAjustesRoute
   AuthenticatedAssistenteRoute: typeof AuthenticatedAssistenteRoute
   AuthenticatedFinancasRoute: typeof AuthenticatedFinancasRoute
+  AuthenticatedInvestimentosRoute: typeof AuthenticatedInvestimentosRoute
   AuthenticatedMetasRoute: typeof AuthenticatedMetasRoute
   AuthenticatedPlanosRoute: typeof AuthenticatedPlanosRoute
   AuthenticatedRotinaRoute: typeof AuthenticatedRotinaRoute
@@ -298,6 +319,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAjustesRoute: AuthenticatedAjustesRoute,
   AuthenticatedAssistenteRoute: AuthenticatedAssistenteRoute,
   AuthenticatedFinancasRoute: AuthenticatedFinancasRoute,
+  AuthenticatedInvestimentosRoute: AuthenticatedInvestimentosRoute,
   AuthenticatedMetasRoute: AuthenticatedMetasRoute,
   AuthenticatedPlanosRoute: AuthenticatedPlanosRoute,
   AuthenticatedRotinaRoute: AuthenticatedRotinaRoute,

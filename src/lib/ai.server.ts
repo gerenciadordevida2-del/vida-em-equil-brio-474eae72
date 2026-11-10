@@ -3,12 +3,14 @@ import {
   APICallError,
   RetryError,
   convertToModelMessages,
+  stepCountIs,
   streamText,
   tool,
   validateUIMessages,
   type UIMessage,
 } from "ai";
 import { z } from "zod";
+import { economicIndicators, fundamentals, quotes, searchAssets } from "@/lib/market.server";
 
 const date = z.string().nullable().describe("Data no formato AAAA-MM-DD, ou null para hoje");
 const exercise = z.object({
@@ -168,7 +170,60 @@ export const tools = {
     }),
     outputSchema: out,
   }),
+  add_investment_operation: tool({
+    description: "Registrar uma compra ou venda de investimento na carteira do usuário",
+    inputSchema: z.object({
+      ticker: z.string().describe("Código do ativo, ex.: PETR4, MXRF11, TESOURO-SELIC"),
+      assetClass: z.enum(["acao", "fii", "etf", "bdr", "renda_fixa", "cripto", "outro"]),
+      side: z.enum(["compra", "venda"]),
+      quantity: z.number(),
+      price: z.number().describe("Preço unitário em reais"),
+      fees: z.number().nullable(),
+      date,
+    }),
+    outputSchema: out,
+  }),
+  add_investment_income: tool({
+    description: "Registrar um provento recebido (dividendo, JCP, rendimento ou juros)",
+    inputSchema: z.object({
+      ticker: z.string(),
+      kind: z.enum(["dividendo", "jcp", "rendimento", "juros"]),
+      amount: z.number().describe("Valor total recebido em reais"),
+      date,
+    }),
+    outputSchema: out,
+  }),
 };
+
+/** Consultas somente leitura executadas no servidor (não alteram dados do usuário). */
+export const marketTools = {
+  market_indicators: tool({
+    description: "Consultar Selic, CDI e IPCA oficiais do Banco Central",
+    inputSchema: z.object({}),
+    execute: () => economicIndicators(),
+  }),
+  market_quotes: tool({
+    description:
+      "Cotação atual, rentabilidade e volatilidade no período e proventos recentes de até 10 ativos da B3 (brapi.dev)",
+    inputSchema: z.object({
+      tickers: z.array(z.string()).min(1).max(10),
+      range: z.enum(["1mo", "3mo", "6mo", "1y", "5y"]).nullable(),
+    }),
+    execute: ({ tickers, range }) => quotes(tickers, range ?? "1y"),
+  }),
+  market_fundamentals: tool({
+    description: "Indicadores fundamentalistas de um ativo (P/L, P/VP, ROE, margens, dívida, DY...)",
+    inputSchema: z.object({ ticker: z.string() }),
+    execute: ({ ticker }) => fundamentals(ticker),
+  }),
+  market_search: tool({
+    description: "Buscar ativos da B3 por nome ou código",
+    inputSchema: z.object({ query: z.string(), type: z.enum(["stock", "fund", "bdr"]).nullable() }),
+    execute: ({ query, type }) => searchAssets(query, type),
+  }),
+};
+
+export const allTools = { ...tools, ...marketTools };
 
 export function errorText(error: unknown): string {
   // Com novas tentativas, o SDK embrulha o erro real em RetryError.lastError.
@@ -229,7 +284,7 @@ export async function handleChat(request: Request): Promise<Response> {
           .optional(),
       })
       .parse(JSON.parse(raw));
-    const messages = await validateUIMessages({ messages: parsed.messages, tools });
+    const messages = await validateUIMessages({ messages: parsed.messages, tools: allTools });
     const last = messages.at(-1);
     if (!last || last.role === "system" || messages.some((message) => message.role === "system"))
       throw new Error("Invalid role");
@@ -277,6 +332,7 @@ export async function handleChat(request: Request): Promise<Response> {
     "Ajude com rotina, tarefas, finanças pessoais (valores em BRL), negócio (vendas, gastos e pagamentos agendados), hábitos, metas e treinos.",
     "Para o negócio: consulte negocioVendas, negocioAgendados e negocioGastos dos dados compartilhados. Novas vendas nascem com recebimento pendente; registre recebimentos/pagamentos com register_sale_payment ou register_scheduled_payment, sem exceder o saldo restante. Não confunda gastos do negócio com despesas pessoais.",
     "Quando o usuário pedir para criar/registrar/alterar algo, use as ferramentas. Cada ação é confirmada pelo usuário no aparelho antes de ser salva; não diga que salvou antes de receber o resultado.",
+    "Investimentos: use market_indicators, market_quotes, market_fundamentals e market_search para dados reais; cite a fonte e a data. Nunca invente cotações ou indicadores — se a consulta falhar ou vier null, diga que o dado não está disponível. A carteira do usuário está em investimentos nos dados compartilhados. Ao sugerir carteiras, explique riscos e diversificação e deixe claro que é análise educativa, não recomendação personalizada de investimento.",
     "Se faltar uma informação essencial (ex.: valor de uma despesa), pergunte antes de chamar a ferramenta.",
     `Hoje é ${today}. Use datas no formato AAAA-MM-DD.`,
     snapshot
@@ -289,7 +345,8 @@ export async function handleChat(request: Request): Promise<Response> {
       model: groq.chat(GROQ_MODEL) as unknown as Parameters<typeof streamText>[0]["model"], // duplicate @ai-sdk/provider copies in node_modules; same runtime shape
       instructions,
       messages: await convertToModelMessages(messages),
-      tools,
+      tools: allTools,
+      stopWhen: stepCountIs(6),
       // Cancela se o usuário parar/fechar ou se a Groq passar de 90s.
       abortSignal: AbortSignal.any([request.signal, AbortSignal.timeout(90_000)]),
       maxRetries: 1,

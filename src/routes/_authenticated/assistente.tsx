@@ -290,6 +290,16 @@ function ActionCard({
         Preparando ação…
       </Card>
     );
+  if (name.startsWith("market_")) {
+    if (part.state === "output-available" || part.state === "output-error")
+      return <p className="text-xs text-muted-foreground">📈 Dados de mercado consultados</p>;
+    return (
+      <p className="text-xs text-muted-foreground">
+        <Loader2 className="mr-1 inline h-3 w-3 animate-spin" />
+        Consultando o mercado…
+      </p>
+    );
+  }
   if (part.state === "output-available") {
     const out = part.output as { ok?: boolean; message?: string };
     return (

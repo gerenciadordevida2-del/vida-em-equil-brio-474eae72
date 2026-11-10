@@ -2,6 +2,7 @@ import { useSyncExternalStore } from "react";
 import { backupSchema } from "@/lib/data-validation";
 import { toast } from "sonner";
 import { emptyBusiness, type BusinessData } from "@/lib/business";
+import type { InvestmentsData } from "@/lib/invest-metrics";
 
 export type Transaction = {
   id: string;
@@ -105,6 +106,7 @@ export type AppData = {
   financeGoals: FinanceGoal[];
   healthGoals: HealthGoal[];
   business: BusinessData;
+  investments?: InvestmentsData;
 };
 
 const KEY = "gerenciador-de-vida:v1";
@@ -154,6 +156,20 @@ function normalizeData(saved: Partial<AppData> | null | undefined): AppData {
         ? { stock: saved.business.stock }
         : {}),
     },
+    ...(saved?.investments && typeof saved.investments === "object"
+      ? {
+          investments: {
+            operations: Array.isArray(saved.investments.operations) ? saved.investments.operations : [],
+            incomes: Array.isArray(saved.investments.incomes) ? saved.investments.incomes : [],
+            suggested: Array.isArray(saved.investments.suggested) ? saved.investments.suggested : [],
+            alerts: Array.isArray(saved.investments.alerts) ? saved.investments.alerts : [],
+            targets:
+              saved.investments.targets && typeof saved.investments.targets === "object"
+                ? saved.investments.targets
+                : {},
+          },
+        }
+      : {}),
   };
 }
 

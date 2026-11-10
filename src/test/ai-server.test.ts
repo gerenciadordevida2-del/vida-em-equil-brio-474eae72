@@ -109,8 +109,9 @@ describe("Groq server configuration", () => {
     const options = mocks.streamText.mock.calls[0]?.[0];
     expect(options.instructions).toContain("português do Brasil");
     expect(
-      Object.values(options.tools).every(
-        (entry: unknown) => typeof entry === "object" && entry !== null && !("execute" in entry),
+      Object.entries(options.tools).every(
+        ([name, entry]) =>
+          typeof entry === "object" && entry !== null && ("execute" in entry) === name.startsWith("market_"),
       ),
     ).toBe(true);
     expect(response.status).toBe(200);

@@ -21,6 +21,11 @@ import {
   type Priority,
 } from "@/lib/store";
 import { validDate } from "@/lib/data-validation";
+import { emptyInvestments, positions, type AssetClass } from "@/lib/invest-metrics";
+
+const CLASSES: AssetClass[] = ["acao", "fii", "etf", "bdr", "renda_fixa", "cripto", "outro"];
+const tickerOf = (v: unknown) =>
+  typeof v === "string" && /^[A-Za-z0-9.^-]{1,20}$/.test(v.trim()) ? v.trim().toUpperCase() : bad("Código do ativo inválido");
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Input = any;
@@ -373,6 +378,47 @@ export function prepareAction(name: string, input: Input, data: AppData): Prepar
         ),
       };
     }
+    case "add_investment_operation": {
+      const ticker = tickerOf(input.ticker);
+      const assetClass: AssetClass = CLASSES.includes(input.assetClass) ? input.assetClass : bad("Classe inválida");
+      const side: "compra" | "venda" = input.side === "venda" ? "venda" : input.side === "compra" ? "compra" : bad("Tipo inválido");
+      const quantity = pos(input.quantity, "Quantidade");
+      const price = pos(input.price, "Preço");
+      const fees = input.fees == null ? 0 : nonneg(input.fees, "Taxas");
+      const date = dateOr(input.date);
+      if (side === "venda") {
+        const held = positions(data.investments?.operations ?? []).find((p) => p.ticker === ticker)?.quantity ?? 0;
+        if (quantity > held + 1e-9) bad(`Você tem só ${held} de ${ticker} na carteira`);
+      }
+      const op = { id: uid(), date, ticker, assetClass, side, quantity, price, ...(fees ? { fees } : {}) };
+      return {
+        summary: `${side === "compra" ? "Comprar" : "Vender"} ${quantity} ${ticker} a ${brl(price)} em ${fmtDate(date)}`,
+        apply: () => (
+          update((d) => {
+            const inv = d.investments ?? emptyInvestments();
+            return { ...d, investments: { ...inv, operations: [...inv.operations, op] } };
+          }),
+          "Operação registrada na carteira"
+        ),
+      };
+    }
+    case "add_investment_income": {
+      const ticker = tickerOf(input.ticker);
+      const kind = ["dividendo", "jcp", "rendimento", "juros"].includes(input.kind) ? input.kind : bad("Tipo inválido");
+      const amount = pos(input.amount, "Valor");
+      const date = dateOr(input.date);
+      const inc = { id: uid(), date, ticker, kind, amount };
+      return {
+        summary: `Registrar ${kind} de ${ticker}: ${brl(amount)} em ${fmtDate(date)}`,
+        apply: () => (
+          update((d) => {
+            const inv = d.investments ?? emptyInvestments();
+            return { ...d, investments: { ...inv, incomes: [...inv.incomes, inc] } };
+          }),
+          "Provento registrado"
+        ),
+      };
+    }
     default:
       bad("Ação desconhecida");
   }
@@ -415,6 +461,12 @@ export function buildSnapshot(d: AppData) {
       .slice(0, 10)
       .map((l) => ({ planName: l.planName, date: l.date })),
     metaTreinosSemana: d.workoutGoal,
+    investimentos: {
+      posicoes: positions(d.investments?.operations ?? []).map(({ ticker, assetClass, quantity, avgPrice, invested, realized }) => ({
+        ticker, classe: assetClass, quantidade: quantity, precoMedio: avgPrice, investido: invested, resultadoRealizado: realized,
+      })),
+      proventosRecentes: (d.investments?.incomes ?? []).slice(-20),
+    },
     // Business: aggregates only (no customer names) for the current month.
     negocioMes: (({ totalSales, receivedOfSales, pendingOfSales, expenses, grossProfit, netProfit, salesCount, toReceive, toPay, balance }) => ({
       totalVendas: totalSales, recebidoVendas: receivedOfSales, vendasPendentes: pendingOfSales,
