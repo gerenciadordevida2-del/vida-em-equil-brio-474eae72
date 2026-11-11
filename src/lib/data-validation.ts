@@ -182,6 +182,11 @@ export const backupSchema = z
       )
       .optional(),
     business: business.optional(),
+    investments: z.object({
+      operations: z.array(z.object({ id, date: validDate, ticker: text, assetClass: z.enum(["acao", "fii", "etf", "bdr", "renda_fixa", "cripto", "outro"]), side: z.enum(["compra", "venda"]), quantity: positive, price: positive, fees: nonneg.optional(), market: z.enum(["br", "us", "crypto"]).optional(), currency: z.enum(["BRL", "USD"]).optional(), fxRate: positive.optional() }).passthrough().refine((x) => x.currency !== "USD" || x.fxRate != null)),
+      incomes: z.array(z.object({ id, date: validDate, ticker: text, kind: z.enum(["dividendo", "jcp", "rendimento", "juros"]), amount: positive, currency: z.enum(["BRL", "USD"]).optional(), fxRate: positive.optional() }).passthrough().refine((x) => x.currency !== "USD" || x.fxRate != null)),
+      suggested: z.array(z.unknown()), alerts: z.array(z.unknown()), targets: z.record(z.string(), nonneg),
+    }).passthrough().optional(),
   })
   .passthrough();
 

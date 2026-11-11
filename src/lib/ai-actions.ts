@@ -22,6 +22,7 @@ import {
 } from "@/lib/store";
 import { validDate } from "@/lib/data-validation";
 import { emptyInvestments, positions, type AssetClass } from "@/lib/invest-metrics";
+import { appendOperation } from "./investment-ledger";
 
 const CLASSES: AssetClass[] = ["acao", "fii", "etf", "bdr", "renda_fixa", "cripto", "outro"];
 const tickerOf = (v: unknown) =>
@@ -41,6 +42,8 @@ const pos = (v: unknown, label: string) =>
     : bad(`${label} deve ser maior que zero`);
 const nonneg = (v: unknown, label: string) =>
   typeof v === "number" && isFinite(v) && v >= 0 ? v : bad(`${label} inválido`);
+const precisePositive = (v: unknown, label: string) =>
+  typeof v === "number" && Number.isFinite(v) && v > 0 ? v : bad(`${label} deve ser maior que zero`);
 function bad(msg: string): never {
   throw new Error(msg);
 }
@@ -382,21 +385,21 @@ export function prepareAction(name: string, input: Input, data: AppData): Prepar
       const ticker = tickerOf(input.ticker);
       const assetClass: AssetClass = CLASSES.includes(input.assetClass) ? input.assetClass : bad("Classe inválida");
       const side: "compra" | "venda" = input.side === "venda" ? "venda" : input.side === "compra" ? "compra" : bad("Tipo inválido");
-      const quantity = pos(input.quantity, "Quantidade");
-      const price = pos(input.price, "Preço");
+      const quantity = typeof input.quantity === "number" && Number.isFinite(input.quantity) && input.quantity > 0 ? input.quantity : bad("Quantidade inválida");
+      const price = precisePositive(input.price, "Preço");
       const fees = input.fees == null ? 0 : nonneg(input.fees, "Taxas");
       const date = dateOr(input.date);
-      if (side === "venda") {
-        const held = positions(data.investments?.operations ?? []).find((p) => p.ticker === ticker)?.quantity ?? 0;
-        if (quantity > held + 1e-9) bad(`Você tem só ${held} de ${ticker} na carteira`);
-      }
-      const op = { id: uid(), date, ticker, assetClass, side, quantity, price, ...(fees ? { fees } : {}) };
+      const currency: "BRL" | "USD" = input.currency == null ? "BRL" : ["BRL", "USD"].includes(input.currency) ? input.currency : bad("Moeda inválida");
+      const market: "br" | "us" | "crypto" = input.market == null ? "br" : ["br", "us", "crypto"].includes(input.market) ? input.market : bad("Mercado inválido");
+      const fxRate = currency === "USD" ? precisePositive(input.fxRate, "Câmbio USD/BRL") : 1;
+      const op = { id: uid(), date, ticker, assetClass, side, quantity, price, currency, market, fxRate, ...(fees ? { fees } : {}) };
+      appendOperation(data.investments?.operations ?? [], op);
       return {
-        summary: `${side === "compra" ? "Comprar" : "Vender"} ${quantity} ${ticker} a ${brl(price)} em ${fmtDate(date)}`,
+        summary: `Registrar ${side}: ${quantity} ${ticker} a ${currency} ${price} · taxas ${fees} · câmbio ${fxRate} em ${fmtDate(date)} (não envia ordem)`,
         apply: () => (
           update((d) => {
             const inv = d.investments ?? emptyInvestments();
-            return { ...d, investments: { ...inv, operations: [...inv.operations, op] } };
+            return { ...d, investments: { ...inv, operations: appendOperation(inv.operations, op) } };
           }),
           "Operação registrada na carteira"
         ),
@@ -407,9 +410,11 @@ export function prepareAction(name: string, input: Input, data: AppData): Prepar
       const kind = ["dividendo", "jcp", "rendimento", "juros"].includes(input.kind) ? input.kind : bad("Tipo inválido");
       const amount = pos(input.amount, "Valor");
       const date = dateOr(input.date);
-      const inc = { id: uid(), date, ticker, kind, amount };
+      const currency: "BRL" | "USD" = input.currency == null ? "BRL" : ["BRL", "USD"].includes(input.currency) ? input.currency : bad("Moeda inválida");
+      const fxRate = currency === "USD" ? precisePositive(input.fxRate, "Câmbio USD/BRL") : 1;
+      const inc = { id: uid(), date, ticker, kind, amount, currency, fxRate };
       return {
-        summary: `Registrar ${kind} de ${ticker}: ${brl(amount)} em ${fmtDate(date)}`,
+        summary: `Registrar ${kind} de ${ticker}: ${currency} ${amount} · câmbio ${fxRate} em ${fmtDate(date)}`,
         apply: () => (
           update((d) => {
             const inv = d.investments ?? emptyInvestments();
@@ -462,8 +467,8 @@ export function buildSnapshot(d: AppData) {
       .map((l) => ({ planName: l.planName, date: l.date })),
     metaTreinosSemana: d.workoutGoal,
     investimentos: {
-      posicoes: positions(d.investments?.operations ?? []).map(({ ticker, assetClass, quantity, avgPrice, invested, realized }) => ({
-        ticker, classe: assetClass, quantidade: quantity, precoMedio: avgPrice, investido: invested, resultadoRealizado: realized,
+      posicoes: positions(d.investments?.operations ?? []).map(({ ticker, assetClass, quantity, avgPrice, invested, realized, currency, market, investedNative, realizedNative }) => ({
+        ticker, classe: assetClass, quantidade: quantity, precoMedio: avgPrice, moeda: currency, mercado: market, investidoBRL: invested, resultadoRealizadoBRL: realized, investidoMoedaOriginal: investedNative, realizadoMoedaOriginal: realizedNative,
       })),
       proventosRecentes: (d.investments?.incomes ?? []).slice(-20),
     },

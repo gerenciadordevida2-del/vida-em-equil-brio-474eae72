@@ -33,3 +33,5 @@
 - [x] Corrigir comparação anual com 12 mensalidades, economia e percentual; retirar “2 meses grátis” incorreto. 113 testes aprovados; nenhuma promoção mensal/preço original separado existe no catálogo.
 - [ ] Implementar e validar Mercado Pago Checkout Pro e webhook: bloqueado por ausência de conexão/Access Token Mercado Pago e segredo de webhook; nenhum checkout ou retorno existe. Checkout Pro precisa de regra de renovação explícita (não cria recorrência automática). Valores promocionais mensais e preços originais separados não estão definidos. Conferência visual autenticada bloqueada por ausência de conta correspondente; requer login no preview.
 - [x] Investimentos: ferramentas de mercado no assistente, operações/proventos com confirmação, página /investimentos. Pendente: BRAPI_TOKEN, CVM, relatórios com app fechado.
+- [ ] Ampliar o assistente existente com mercados globais, cripto e câmbio verificáveis; registrar operações multimoeda com confirmação e frações precisas.
+- [ ] Consolidar carteira em Finanças e relatórios BRL/USD sem somar moedas incompatíveis; validar cálculos, fontes e navegação.

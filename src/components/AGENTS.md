@@ -1,0 +1,1 @@
+- Reuse PortfolioReport in Finanças and Investimentos rather than duplicating portfolio calculations or storage — keeps multimoeda reports consistent.

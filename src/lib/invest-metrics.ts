@@ -25,6 +25,9 @@ export type InvestmentOperation = {
   price: number;
   fees?: number;
   notes?: string;
+  currency?: "BRL" | "USD";
+  market?: "br" | "us" | "crypto";
+  fxRate?: number;
 };
 
 export type InvestmentIncome = {
@@ -33,6 +36,8 @@ export type InvestmentIncome = {
   ticker: string;
   kind: "dividendo" | "jcp" | "rendimento" | "juros";
   amount: number;
+  currency?: "BRL" | "USD";
+  fxRate?: number;
 };
 
 export type SuggestedItem = {
@@ -111,7 +116,7 @@ export const freeCashFlow = (operatingCashFlow: number, capex: number) =>
 export function volatility(closes: number[], periodsPerYear = 252): number | null {
   const p = closes.filter((x) => finite(x) && x > 0);
   if (p.length < 3) return null;
-  const rets = p.slice(1).map((v, i) => Math.log(v / p[i]!));
+  const rets = p.slice(1).flatMap((v, i) => { const previous = p[i]; return previous ? [Math.log(v / previous)] : []; });
   const mean = rets.reduce((s, x) => s + x, 0) / rets.length;
   const variance = rets.reduce((s, x) => s + (x - mean) ** 2, 0) / (rets.length - 1);
   return r2(Math.sqrt(variance) * Math.sqrt(periodsPerYear) * 100);
@@ -120,7 +125,8 @@ export function volatility(closes: number[], periodsPerYear = 252): number | nul
 export function periodReturn(closes: number[]): number | null {
   const p = closes.filter((x) => finite(x) && x > 0);
   if (p.length < 2) return null;
-  return r2((p.at(-1)! / p[0]! - 1) * 100);
+  const first = p[0], last = p.at(-1);
+  return first && last ? r2((last / first - 1) * 100) : null;
 }
 export function cagr(start: number, end: number, years: number): number | null {
   if (!finite(start, end, years) || start <= 0 || end <= 0 || years <= 0) return null;
@@ -159,32 +165,48 @@ export type Position = {
   avgPrice: number;
   invested: number;
   realized: number;
+  currency: "BRL" | "USD";
+  market: "br" | "us" | "crypto";
+  key: string;
+  investedNative: number;
+  realizedNative: number;
 };
+
+export const positionKey = (op: Pick<InvestmentOperation, "ticker" | "market" | "currency">) =>
+  `${op.market ?? "br"}:${op.ticker.toUpperCase()}:${op.currency ?? "BRL"}`;
 
 /** Posições derivadas das operações (custo médio). Vendas acima da quantidade são ignoradas. */
 export function positions(ops: InvestmentOperation[]): Position[] {
   const map = new Map<string, Position>();
   for (const op of [...ops].sort((a, b) => a.date.localeCompare(b.date))) {
     const t = op.ticker.toUpperCase();
-    const p = map.get(t) ?? { ticker: t, assetClass: op.assetClass, quantity: 0, avgPrice: 0, invested: 0, realized: 0 };
+    const key = positionKey(op);
+    const currency = op.currency ?? "BRL";
+    const fx = currency === "USD" ? op.fxRate : 1;
+    if (typeof fx !== "number" || !Number.isFinite(fx) || fx <= 0) continue;
+    const p = map.get(key) ?? { ticker: t, key, currency, market: op.market ?? "br", assetClass: op.assetClass, quantity: 0, avgPrice: 0, invested: 0, realized: 0, investedNative: 0, realizedNative: 0 };
     const fees = op.fees ?? 0;
     if (op.side === "compra") {
       const cost = op.quantity * op.price + fees;
-      p.invested += cost;
+      p.invested += cost * fx;
+      p.investedNative += cost;
       p.quantity += op.quantity;
-      p.avgPrice = p.quantity > 0 ? p.invested / p.quantity : 0;
+      p.avgPrice = p.quantity > 0 ? p.investedNative / p.quantity : 0;
     } else {
       const q = Math.min(op.quantity, p.quantity);
       if (q <= 0) continue;
-      p.realized += q * op.price - fees - q * p.avgPrice;
+      const removedBRL = q * (p.invested / p.quantity);
+      p.realized += (q * op.price - fees) * fx - removedBRL;
+      p.realizedNative += q * op.price - fees - q * p.avgPrice;
       p.quantity -= q;
-      p.invested = p.quantity * p.avgPrice;
+      p.invested -= removedBRL;
+      p.investedNative = p.quantity * p.avgPrice;
       if (p.quantity <= 1e-9) {
         p.quantity = 0;
         p.invested = 0;
       }
     }
-    map.set(t, p);
+    map.set(key, p);
   }
   return [...map.values()]
     .filter((p) => p.quantity > 0 || p.realized !== 0)
@@ -192,14 +214,16 @@ export function positions(ops: InvestmentOperation[]): Position[] {
 }
 
 /** Valor de mercado por posição; sem cotação usa o custo e marca `priced: false`. */
-export function valuePositions(list: Position[], prices: Record<string, number | undefined>) {
+export function valuePositions(list: Position[], prices: Record<string, number | undefined>, usdBrl?: number) {
   return list
     .filter((p) => p.quantity > 0)
     .map((p) => {
-      const price = prices[p.ticker];
-      const priced = typeof price === "number" && price > 0;
-      const value = r2(priced ? p.quantity * price : p.invested);
-      return { ...p, price: priced ? price : null, priced, value, pnl: r2(value - p.invested) };
+      const price = prices[p.key] ?? (p.currency === "BRL" ? prices[p.ticker] : undefined);
+      const fx = p.currency === "USD" ? usdBrl : 1;
+      const priced = typeof price === "number" && Number.isFinite(price) && price > 0 && typeof fx === "number" && Number.isFinite(fx) && fx > 0;
+      const value = r2(priced ? p.quantity * (price ?? 0) * (fx ?? 1) : p.invested);
+      const nativeValue = priced ? p.quantity * (price ?? 0) : p.investedNative;
+      return { ...p, price: priced ? price : null, priced, value, pnl: r2(value - p.invested), nativeValue: r2(nativeValue), nativePnl: r2(nativeValue - p.investedNative) };
     });
 }
 
@@ -257,7 +281,7 @@ export function incomesLast12m(incomes: InvestmentIncome[], todayStr: string) {
   const d = new Date(`${todayStr}T12:00:00Z`);
   d.setUTCFullYear(d.getUTCFullYear() - 1);
   const from = d.toISOString().slice(0, 10);
-  return r2(incomes.filter((i) => i.date > from && i.date <= todayStr).reduce((s, i) => s + i.amount, 0));
+  return r2(incomes.filter((i) => i.date > from && i.date <= todayStr).reduce((s, i) => s + i.amount * (i.currency === "USD" ? i.fxRate ?? 0 : 1), 0));
 }
 
 export function triggeredAlerts(alerts: PriceAlert[], prices: Record<string, number | undefined>) {

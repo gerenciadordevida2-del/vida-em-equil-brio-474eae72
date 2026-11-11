@@ -10,6 +10,7 @@ import type { FinanceGoal, Transaction } from "@/lib/store";
 import { Page, Card } from "@/components/AppShell";
 import { BusinessTab } from "@/components/BusinessTab";
 import { ChartsTab } from "@/components/ChartsTab";
+import { PortfolioReport } from "@/components/PortfolioReport";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useData, update, uid, today, brl, fmtDate } from "@/lib/store";
 
@@ -30,7 +31,7 @@ export const Route = createFileRoute("/_authenticated/financas")({
   component: Financas,
 });
 
-type Tab = "lancamentos" | "contas" | "dividas" | "metas" | "negocio" | "graficos";
+type Tab = "lancamentos" | "contas" | "dividas" | "metas" | "negocio" | "graficos" | "investimentos";
 const CATS = [
   "Alimentação",
   "Moradia",
@@ -105,6 +106,7 @@ export function Financas({
     ["metas", "Metas"],
     ["negocio", "Negócio"],
     ["graficos", "Gráficos"],
+    ["investimentos", "Investimentos"],
   ];
 
   return (
@@ -112,7 +114,7 @@ export function Financas({
       title={goalsPage ? "Metas" : "Finanças"}
       subtitle="Seu dinheiro sob controle"
       action={
-        tab === "negocio" || tab === "graficos" ? undefined : tab !== "metas" ? (
+        tab === "negocio" || tab === "graficos" || tab === "investimentos" ? undefined : tab !== "metas" ? (
           <button
             onClick={() => setOpen(true)}
             className="shadow-glow flex h-11 items-center gap-1 rounded-xl bg-primary px-4 font-semibold text-primary-foreground"
@@ -132,13 +134,14 @@ export function Financas({
       {!goalsPage && (
         <div className="mb-4 grid grid-cols-3 gap-1 rounded-xl bg-secondary p-1 sm:grid-cols-6">
           {tabs.map(([k, l]) => (
-            <button
+            <Button
               key={k}
+              variant="ghost"
               onClick={() => setTab(k)}
-              className={`rounded-lg py-2 text-sm font-semibold ${tab === k ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
+              className={`min-w-0 rounded-lg px-1 py-2 text-xs font-semibold ${tab === k ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
             >
               {l}
-            </button>
+            </Button>
           ))}
         </div>
       )}
@@ -425,6 +428,7 @@ export function Financas({
       {tab === "metas" && <FinanceGoals />}
       {tab === "negocio" && <BusinessTab />}
       {tab === "graficos" && <ChartsTab />}
+      {tab === "investimentos" && <PortfolioReport />}
 
       <NewDialog
         open={open && tab !== "metas" && tab !== "negocio"}

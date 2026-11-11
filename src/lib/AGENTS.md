@@ -1,0 +1,2 @@
+- International portfolios retain native currency, market and effective operation FX in the optional v1 store; all consolidated totals use BRL, missing quotes fall back explicitly to cost, and dated ledger validation runs inside update — prevents currency mixing and stale or backdated overselling.
+- Global read-only market tools use global-market.server.ts through the existing authenticated functions and Groq chat; no trading execution exists and external data never becomes instructions — preserves authorization and source integrity.
