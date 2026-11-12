@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { Home, Wallet, ListChecks, Dumbbell, Target, Sparkles, Bell } from "lucide-react";
+import { Home, Wallet, ListChecks, Dumbbell, Target, Sparkles, Bell, Store, Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState, type ReactNode } from "react";
 import { useData } from "@/lib/store";
@@ -44,19 +44,20 @@ export function Page({
   };
 
   return (
-    <div className="mx-auto min-h-screen max-w-md px-4 pb-28 pt-6">
-      <header className="mb-5 flex items-end justify-between gap-3">
-        <div>
-          {subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}
-          <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
+    <div className="mx-auto min-h-screen max-w-md px-4 pb-32 pt-6">
+      <header className="mb-6 grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3">
+        <div className="min-w-0">
+          {subtitle && <p className="truncate text-sm text-muted-foreground">{subtitle}</p>}
+          <h1 className="truncate text-[26px] font-semibold tracking-tight">{title}</h1>
         </div>
         <div className="flex items-center gap-2">
+          <ThemeToggle />
           {permission !== "granted" && (
             <Button
               onClick={handleEnableNotifications}
               variant="outline"
               size="icon"
-              className="h-9 w-9 rounded-xl"
+              className="h-10 w-10 rounded-full bg-card shadow-sm"
               title="Ativar Notificações"
             >
               <Bell className="h-4 w-4 text-primary" />
@@ -71,52 +72,64 @@ export function Page({
 }
 
 export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
-  return <section className={`rounded-2xl border bg-card p-4 ${className}`}>{children}</section>;
+  return <section className={`rounded-3xl border bg-card p-4 shadow-[var(--shadow-float)] ${className}`}>{children}</section>;
 }
 
-export function BottomNav() {
-  const item =
-    "h-12 min-w-0 flex-1 flex-col gap-1 rounded-full px-0 text-[9px] text-muted-foreground transition-all duration-200 hover:text-foreground [&_svg]:size-[18px]";
-  const active = { className: `${item} bg-secondary text-primary` };
+export function ThemeToggle() {
+  const [dark, setDark] = useState(false);
+  useEffect(() => setDark(document.documentElement.classList.contains("dark")), []);
+  const toggle = () => {
+    const next = !dark;
+    setDark(next);
+    document.documentElement.classList.toggle("dark", next);
+    try { localStorage.setItem("gv-theme", next ? "dark" : "light"); } catch { /* ignore */ }
+  };
   return (
-    <nav
-      aria-label="Navegação principal"
-      className="pill-nav fixed inset-x-4 z-40 mx-auto max-w-[416px] rounded-full border p-1.5 backdrop-blur-xl"
-    >
-      <div className="flex items-center gap-1">
-        <Button asChild variant="ghost" className={item}>
-          <Link to="/" activeProps={active} activeOptions={{ exact: true, includeHash: true }}>
-            <Home className="h-5 w-5" /> Início
-          </Link>
-        </Button>
-        <Button asChild variant="ghost" className={item}>
-          <Link to="/financas" activeProps={active}>
-            <Wallet className="h-5 w-5" /> Finanças
-          </Link>
-        </Button>
-        <Button asChild variant="ghost" className={item}>
-          <Link to="/rotina" activeProps={active}>
-            <ListChecks className="h-5 w-5" /> Rotina
-          </Link>
-        </Button>
-        <Button asChild variant="ghost" className={item}>
-          <Link to="/treinos" activeProps={active}>
-            <Dumbbell className="h-5 w-5" /> Treinos
-          </Link>
-        </Button>
-        <Button asChild variant="ghost" className={item}>
-          <Link to="/metas" activeProps={active}>
-            <Target className="h-5 w-5" /> Metas
-          </Link>
-        </Button>
-        <Button
-          asChild
-          className="h-12 w-12 shrink-0 rounded-full bg-neon p-0 text-neon-foreground hover:bg-neon/90 [&_svg]:size-5"
-        >
-          <Link to="/assistente" aria-label="Assistente IA" title="Assistente IA">
-            <Sparkles />
-          </Link>
-        </Button>
+    <Button onClick={toggle} variant="outline" size="icon" className="h-10 w-10 rounded-full bg-card shadow-sm" aria-label={dark ? "Usar modo claro" : "Usar modo escuro"} title={dark ? "Modo claro" : "Modo escuro"}>
+      {dark ? <Sun className="h-4 w-4 text-primary" /> : <Moon className="h-4 w-4 text-primary" />}
+    </Button>
+  );
+}
+
+const NAV = [
+  { to: "/", label: "Início", icon: Home, exact: true },
+  { to: "/financas", label: "Finanças", icon: Wallet },
+  { to: "/negocio", label: "Negócio", icon: Store },
+  { to: "/assistente", label: "IA", icon: Sparkles, center: true },
+  { to: "/rotina", label: "Rotina", icon: ListChecks },
+  { to: "/treinos", label: "Treinos", icon: Dumbbell },
+  { to: "/metas", label: "Metas", icon: Target },
+] as const;
+
+export function BottomNav() {
+  return (
+    <nav aria-label="Navegação principal" className="pill-nav fixed inset-x-0 bottom-0 z-40 border-t backdrop-blur-xl">
+      <div className="mx-auto flex max-w-md items-end px-1 pt-1.5">
+        {NAV.map((n) => {
+          const Icon = n.icon;
+          if ("center" in n)
+            return (
+              <Link key={n.to} to={n.to} aria-label="Assistente IA" className="group flex min-w-0 flex-1 flex-col items-center gap-1 text-[10px] font-medium text-muted-foreground" activeProps={{ className: "text-primary" }}>
+                <span className="-mt-5 grid h-12 w-12 place-items-center rounded-full bg-primary text-primary-foreground shadow-glow ring-4 ring-background">
+                  <Icon className="h-5 w-5" />
+                </span>
+                {n.label}
+              </Link>
+            );
+          return (
+            <Link
+              key={n.to}
+              to={n.to}
+              activeOptions={{ exact: "exact" in n }}
+              className="relative flex h-12 min-w-0 flex-1 flex-col items-center justify-center gap-1 text-[10px] font-medium text-muted-foreground hover:text-foreground"
+              activeProps={{ className: "text-primary font-semibold [&>span]:opacity-100" }}
+            >
+              <span className="absolute top-0 h-0.5 w-6 rounded-full bg-primary opacity-0" />
+              <Icon className="h-5 w-5" />
+              <span className="truncate">{n.label}</span>
+            </Link>
+          );
+        })}
       </div>
     </nav>
   );

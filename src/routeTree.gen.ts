@@ -18,6 +18,7 @@ import { Route as AuthenticatedAssistenteRouteImport } from './routes/_authentic
 import { Route as AuthenticatedFinancasRouteImport } from './routes/_authenticated/financas'
 import { Route as AuthenticatedInvestimentosRouteImport } from './routes/_authenticated/investimentos'
 import { Route as AuthenticatedMetasRouteImport } from './routes/_authenticated/metas'
+import { Route as AuthenticatedNegocioRouteImport } from './routes/_authenticated/negocio'
 import { Route as AuthenticatedPlanosRouteImport } from './routes/_authenticated/planos'
 import { Route as AuthenticatedRotinaRouteImport } from './routes/_authenticated/rotina'
 import { Route as AuthenticatedTreinosRouteImport } from './routes/_authenticated/treinos'
@@ -69,6 +70,11 @@ const AuthenticatedMetasRoute = AuthenticatedMetasRouteImport.update({
   path: '/metas',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedNegocioRoute = AuthenticatedNegocioRouteImport.update({
+  id: '/negocio',
+  path: '/negocio',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedPlanosRoute = AuthenticatedPlanosRouteImport.update({
   id: '/planos',
   path: '/planos',
@@ -104,6 +110,7 @@ export interface FileRoutesByFullPath {
   '/financas': typeof AuthenticatedFinancasRoute
   '/investimentos': typeof AuthenticatedInvestimentosRoute
   '/metas': typeof AuthenticatedMetasRoute
+  '/negocio': typeof AuthenticatedNegocioRoute
   '/planos': typeof AuthenticatedPlanosRoute
   '/rotina': typeof AuthenticatedRotinaRoute
   '/treinos': typeof AuthenticatedTreinosRoute
@@ -118,6 +125,7 @@ export interface FileRoutesByTo {
   '/financas': typeof AuthenticatedFinancasRoute
   '/investimentos': typeof AuthenticatedInvestimentosRoute
   '/metas': typeof AuthenticatedMetasRoute
+  '/negocio': typeof AuthenticatedNegocioRoute
   '/planos': typeof AuthenticatedPlanosRoute
   '/rotina': typeof AuthenticatedRotinaRoute
   '/treinos': typeof AuthenticatedTreinosRoute
@@ -135,6 +143,7 @@ export interface FileRoutesById {
   '/_authenticated/financas': typeof AuthenticatedFinancasRoute
   '/_authenticated/investimentos': typeof AuthenticatedInvestimentosRoute
   '/_authenticated/metas': typeof AuthenticatedMetasRoute
+  '/_authenticated/negocio': typeof AuthenticatedNegocioRoute
   '/_authenticated/planos': typeof AuthenticatedPlanosRoute
   '/_authenticated/rotina': typeof AuthenticatedRotinaRoute
   '/_authenticated/treinos': typeof AuthenticatedTreinosRoute
@@ -153,6 +162,7 @@ export interface FileRouteTypes {
     | '/financas'
     | '/investimentos'
     | '/metas'
+    | '/negocio'
     | '/planos'
     | '/rotina'
     | '/treinos'
@@ -167,6 +177,7 @@ export interface FileRouteTypes {
     | '/financas'
     | '/investimentos'
     | '/metas'
+    | '/negocio'
     | '/planos'
     | '/rotina'
     | '/treinos'
@@ -183,6 +194,7 @@ export interface FileRouteTypes {
     | '/_authenticated/financas'
     | '/_authenticated/investimentos'
     | '/_authenticated/metas'
+    | '/_authenticated/negocio'
     | '/_authenticated/planos'
     | '/_authenticated/rotina'
     | '/_authenticated/treinos'
@@ -263,6 +275,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedMetasRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/negocio': {
+      id: '/_authenticated/negocio'
+      path: '/negocio'
+      fullPath: '/negocio'
+      preLoaderRoute: typeof AuthenticatedNegocioRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/planos': {
       id: '/_authenticated/planos'
       path: '/planos'
@@ -308,6 +327,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedFinancasRoute: typeof AuthenticatedFinancasRoute
   AuthenticatedInvestimentosRoute: typeof AuthenticatedInvestimentosRoute
   AuthenticatedMetasRoute: typeof AuthenticatedMetasRoute
+  AuthenticatedNegocioRoute: typeof AuthenticatedNegocioRoute
   AuthenticatedPlanosRoute: typeof AuthenticatedPlanosRoute
   AuthenticatedRotinaRoute: typeof AuthenticatedRotinaRoute
   AuthenticatedTreinosRoute: typeof AuthenticatedTreinosRoute
@@ -321,6 +341,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedFinancasRoute: AuthenticatedFinancasRoute,
   AuthenticatedInvestimentosRoute: AuthenticatedInvestimentosRoute,
   AuthenticatedMetasRoute: AuthenticatedMetasRoute,
+  AuthenticatedNegocioRoute: AuthenticatedNegocioRoute,
   AuthenticatedPlanosRoute: AuthenticatedPlanosRoute,
   AuthenticatedRotinaRoute: AuthenticatedRotinaRoute,
   AuthenticatedTreinosRoute: AuthenticatedTreinosRoute,
