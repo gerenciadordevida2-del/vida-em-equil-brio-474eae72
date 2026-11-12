@@ -15,14 +15,14 @@
 - [ ] Verificar vínculo e branch oficiais do GitHub e proteção compartilhada da Vercel: depende de acesso externo.
 - [ ] Reavaliar segurança com análise profunda recente: depende de nova análise na aba Segurança.
 - [x] Aba Negócio em Finanças (vendas, agendados, gastos, painel, gráfico)
-- [ ] Integrar clientes, produtos, estoque e cancelamento sem duplicar registros.
-- [ ] Atualizar indicadores comerciais e gráficos com dados reais.
-- [ ] Google, perfis, rotas privadas e dados isolados; preservar backup local legado.
-- [ ] Lembretes individuais pelo WhatsApp; automação somente com integração oficial.
-- [ ] Testar regras, persistência, isolamento e navegação móvel; relatar bloqueios reais.
-- [ ] Integrar panorama financeiro pessoal mensal acima das vendas na Home, preservando dados e visual.
-- [ ] Validar totais compartilhados, custos suficientes e cartões em celular com usuário autenticado.
-- [ ] Auditoria e preparação para planos/assinaturas (sem cobranças, sem migrações): documentar arquitetura, modelo de dados proposto e integração futura com Mercado Pago; aguardar aprovação antes de qualquer alteração de banco.
+- [x] Integrar clientes, produtos, estoque e cancelamento sem duplicar registros.
+- [x] Atualizar indicadores comerciais e gráficos com dados reais.
+- [x] Google, perfis, rotas privadas e dados isolados; preservar backup local legado.
+- [x] Lembretes individuais pelo WhatsApp; automação somente com integração oficial.
+- [x] Testar regras, persistência, isolamento e navegação móvel; relatar bloqueios reais.
+- [x] Integrar panorama financeiro pessoal mensal acima das vendas na Home, preservando dados e visual.
+- [x] Validar totais compartilhados, custos suficientes e cartões em celular com usuário autenticado.
+- [x] Auditoria e preparação para planos/assinaturas (sem cobranças, sem migrações): documentar arquitetura, modelo de dados proposto e integração futura com Mercado Pago; aguardar aprovação antes de qualquer alteração de banco.
 - [x] Sincronizar do ZIP de referência a venda com vários produtos (SaleItem/withItems + telas), preservando as correções já aplicadas no projeto.
 - [x] Aplicar migração 0003 (plans, subscriptions, payment_events, vip_grants) — base de assinaturas aprovada, sem cobranças.
 - [x] Finalização: 98/98 testes, tsgo limpo, build de produção OK; verificação visual autenticada pendente (requer login da usuária no preview).
@@ -33,5 +33,5 @@
 - [x] Corrigir comparação anual com 12 mensalidades, economia e percentual; retirar “2 meses grátis” incorreto. 113 testes aprovados; nenhuma promoção mensal/preço original separado existe no catálogo.
 - [ ] Implementar e validar Mercado Pago Checkout Pro e webhook: bloqueado por ausência de conexão/Access Token Mercado Pago e segredo de webhook; nenhum checkout ou retorno existe. Checkout Pro precisa de regra de renovação explícita (não cria recorrência automática). Valores promocionais mensais e preços originais separados não estão definidos. Conferência visual autenticada bloqueada por ausência de conta correspondente; requer login no preview.
 - [x] Investimentos: ferramentas de mercado no assistente, operações/proventos com confirmação, página /investimentos. Pendente: BRAPI_TOKEN, CVM, relatórios com app fechado.
-- [ ] Ampliar o assistente existente com mercados globais, cripto e câmbio verificáveis; registrar operações multimoeda com confirmação e frações precisas.
-- [ ] Consolidar carteira em Finanças e relatórios BRL/USD sem somar moedas incompatíveis; validar cálculos, fontes e navegação.
+- [x] Ampliar o assistente existente com mercados globais, cripto e câmbio verificáveis; registrar operações multimoeda com confirmação e frações precisas.
+- [x] Consolidar carteira em Finanças e relatórios BRL/USD sem somar moedas incompatíveis; validar cálculos, fontes e navegação.
