@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
-import { Check, Pencil, Plus, Trash2, HandCoins, Package } from "lucide-react";
+import { Check, Pencil, Plus, Trash2, HandCoins, Package, LayoutDashboard, ReceiptText, Users, CalendarDays, ArrowUpRight } from "lucide-react";
 import { toast } from "sonner";
 import { Card } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,9 @@ import {
   type AgendaItem,
   assertStockAvailable,
   businessMetrics,
+  filterSales,
+  receiveSale,
+  type SalesFilter,
   dueGroup,
   expensesByCategory,
   stockStatus,
@@ -211,16 +214,18 @@ export function BusinessTab() {
     ["agenda", "Agendados"],
     ["gastos", "Gastos"],
   ];
+  const sectionIcons = { painel: LayoutDashboard, vendas: ReceiptText, clientes: Users, produtos: Package, agenda: CalendarDays, gastos: ArrowUpRight };
 
   return (
     <div>
-      <div className="mb-3 grid grid-cols-3 gap-1 rounded-xl border p-1">
-        {sections.map(([k, l]) => (
-          <button key={k} type="button" onClick={() => setSection(k)}
-            className={`rounded-lg py-2 text-xs font-semibold ${section === k ? "bg-secondary text-foreground" : "text-muted-foreground"}`}>
-            {l}
-          </button>
-        ))}
+      <div className="mb-6 grid grid-cols-3 gap-2" aria-label="Áreas do negócio">
+        {sections.map(([k, l]) => {
+          const Icon = sectionIcons[k];
+          return <Button key={k} type="button" variant="ghost" onClick={() => setSection(k)} aria-pressed={section === k}
+            className={`h-20 flex-col gap-2 rounded-xl text-xs ${section === k ? "bg-accent text-accent-foreground" : "text-muted-foreground"}`}>
+            <Icon className="h-5 w-5" />{l}
+          </Button>;
+        })}
       </div>
 
       {section === "painel" && (
@@ -336,15 +341,30 @@ function PayDialog({ title, open, max, onClose, onPay }: {
 
 function SalesSection({ sales }: { sales: Sale[] }) {
   const [editing, setEditing] = useState<Sale | null | "new">(null);
-  const [paying, setPaying] = useState<Sale | null>(null);
-  const list = [...sales].sort((a, b) => b.date.localeCompare(a.date));
+  const [paying, setPaying] = useState<{ saleId: string; paymentId: string } | null>(null);
+  const [filter, setFilter] = useState<SalesFilter>("pendentes");
+  const list = filterSales(sales, filter);
+  const payingSale = sales.find((s) => s.id === paying?.saleId);
+  const filters: [SalesFilter, string][] = [["todas", "Todas"], ["pendentes", "Pendentes"], ["pagas", "Pagas"]];
+  const received = sales.filter((s) => !s.status).reduce((total, s) => total + Math.round(paidOf(s) * 100), 0) / 100;
+  const open = sales.filter((s) => !s.status).reduce((total, s) => total + Math.round(remaining(saleTotal(s), s) * 100), 0) / 100;
   return (
     <>
+      <div className="mb-5 grid grid-cols-2 gap-4 border-b pb-5">
+        <div><p className="text-xs text-muted-foreground">Recebido</p><p className="mt-1 text-xl font-semibold text-success">{brl(received)}</p></div>
+        <div><p className="text-xs text-muted-foreground">A receber</p><p className="mt-1 text-xl font-semibold">{brl(open)}</p></div>
+      </div>
       <Button onClick={() => setEditing("new")} className="mb-3 h-12 w-full rounded-xl">
         <Plus className="h-5 w-5" /> Registrar venda
       </Button>
-      <Card>
-        {list.length === 0 && <p className="text-sm text-muted-foreground">Nenhuma venda registrada.</p>}
+      <div className="mb-4 grid grid-cols-3 gap-1 rounded-xl bg-secondary p-1" aria-label="Filtrar vendas">
+        {filters.map(([key, label]) => <Button key={key} variant="ghost" aria-pressed={filter === key} onClick={() => setFilter(key)}
+          className={`h-10 gap-1.5 rounded-lg px-1 text-xs ${filter === key ? "bg-card text-primary shadow-sm" : "text-muted-foreground"}`}>
+          {label}<span className="text-[10px]">{filterSales(sales, key).length}</span>
+        </Button>)}
+      </div>
+      <div>
+        {list.length === 0 && <p className="py-8 text-center text-sm text-muted-foreground">{filter === "pendentes" ? "Nenhuma venda pendente." : filter === "pagas" ? "Nenhuma venda paga." : "Nenhuma venda registrada."}</p>}
         <ul className="divide-y">
           {list.map((s) => {
             const total = saleTotal(s);
@@ -391,9 +411,9 @@ function SalesSection({ sales }: { sales: Sale[] }) {
                     <option value="devolvida">Devolução</option>
                   </select>
                   {st !== "pago" && (
-                    <button type="button" className="flex items-center gap-1 text-xs font-semibold text-primary" onClick={() => setPaying(s)}>
+                    <Button type="button" variant="ghost" className="h-9 gap-1 px-2 text-xs font-semibold text-primary" onClick={() => setPaying({ saleId: s.id, paymentId: uid() })}>
                       <HandCoins className="h-4 w-4" /> Receber
-                    </button>
+                    </Button>
                   )}
                   <button type="button" aria-label="Editar" className="text-muted-foreground" onClick={() => setEditing(s)}>
                     <Pencil className="h-4 w-4" />
@@ -404,17 +424,17 @@ function SalesSection({ sales }: { sales: Sale[] }) {
             );
           })}
         </ul>
-      </Card>
+      </div>
       {editing && <SaleDialog sale={editing === "new" ? null : editing} onClose={() => setEditing(null)} />}
-      {paying && (
-        <PayDialog title="Registrar recebimento" open max={remaining(saleTotal(paying), paying)}
+      {paying && payingSale && (
+        <PayDialog title="Registrar recebimento" open max={remaining(saleTotal(payingSale), payingSale)}
           onClose={() => setPaying(null)}
           onPay={(amount, date) => {
-            const ok = setBiz((b) => ({
-              ...b,
-              sales: b.sales.map((x) => (x.id === paying.id ? addPayment(x, saleTotal(x), amount, date) : x)),
-            }));
-            if (ok) setPaying(null);
+            const ok = setBiz((b) => receiveSale(b, paying.saleId, amount, date, paying.paymentId));
+            if (ok) {
+              setPaying(null);
+              toast.success("Recebimento registrado.");
+            }
           }} />
       )}
     </>

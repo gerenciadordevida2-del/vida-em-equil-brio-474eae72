@@ -35,3 +35,5 @@
 - [x] Investimentos: ferramentas de mercado no assistente, operações/proventos com confirmação, página /investimentos. Pendente: BRAPI_TOKEN, CVM, relatórios com app fechado.
 - [x] Ampliar o assistente existente com mercados globais, cripto e câmbio verificáveis; registrar operações multimoeda com confirmação e frações precisas.
 - [x] Consolidar carteira em Finanças e relatórios BRL/USD sem somar moedas incompatíveis; validar cálculos, fontes e navegação.
+- [x] Corrigir filtros e confirmação de recebimentos do Negócio; testes de interface, persistência local e reconciliação aprovados. Verificação real na nuvem depende de login da usuária no preview.
+- [x] Retomar acabamento fintech verde inspirado no Inter: atalhos com ícones, filtros com contadores e página própria de Negócio. Conferência autenticada depende de login no preview.

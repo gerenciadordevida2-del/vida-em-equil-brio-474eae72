@@ -45,10 +45,10 @@ export function Page({
 
   return (
     <div className="mx-auto min-h-screen max-w-md px-4 pb-32 pt-6">
-      <header className="mb-6 grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3">
+      <header className="mb-6 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b pb-5">
         <div className="min-w-0">
           {subtitle && <p className="truncate text-sm text-muted-foreground">{subtitle}</p>}
-          <h1 className="truncate text-[26px] font-semibold tracking-tight">{title}</h1>
+          <h1 className="break-words text-[26px] font-semibold">{title}</h1>
         </div>
         <div className="flex items-center gap-2">
           <ThemeToggle />

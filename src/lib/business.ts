@@ -1,7 +1,7 @@
 // Pure business (Negócio) types and calculations. Money is summed in integer cents
 // to avoid floating-point drift; stored values are rounded to 2 decimals.
 
-export type Movement = { date: string; amount: number };
+export type Movement = { date: string; amount: number; paymentId?: string };
 
 /** One product line of a sale. unitPrice/unitCost are snapshots taken when the sale was
  * registered, so later product price edits never change past sales. */
@@ -200,6 +200,26 @@ export function statusOf(total: number, m: { payments: Movement[] }): PayStatus 
   const paid = c(paidOf(m));
   if (paid <= 0) return "pendente";
   return paid >= c(total) ? "pago" : "parcial";
+}
+
+export type SalesFilter = "todas" | "pendentes" | "pagas";
+/** Payment status stays derived from the ledger, including after cloud reloads. */
+export function filterSales(sales: Sale[], filter: SalesFilter): Sale[] {
+  return sales.filter((s) => filter === "todas" ||
+    (isActiveSale(s) && (filter === "pagas"
+      ? remaining(saleTotal(s), s) === 0
+      : remaining(saleTotal(s), s) > 0)))
+    .sort((a, b) => b.date.localeCompare(a.date));
+}
+
+/** Apply against current state, preserving snapshots and ignoring a repeated confirmation. */
+export function receiveSale(b: BusinessData, saleId: string, amount: number, date: string, paymentId: string): BusinessData {
+  const sale = b.sales.find((s) => s.id === saleId);
+  if (!sale || !isActiveSale(sale)) throw new Error("Esta venda não está disponível para recebimento.");
+  if (sale.payments.some((p) => p.paymentId === paymentId)) return b;
+  const received = addPayment(sale, saleTotal(sale), amount, date);
+  const payments = received.payments.map((p, i) => i === received.payments.length - 1 ? { ...p, paymentId } : p);
+  return { ...b, sales: b.sales.map((s) => s.id === saleId ? { ...received, payments } : s) };
 }
 
 /** Returns sale profit or null when the unit cost is unknown (never assumes profit). */

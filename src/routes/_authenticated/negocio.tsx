@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Financas } from "@/routes/_authenticated/financas";
+import { Page } from "@/components/AppShell";
+import { BusinessTab } from "@/components/BusinessTab";
 
 export const Route = createFileRoute("/_authenticated/negocio")({
   head: () => ({
@@ -22,5 +23,5 @@ export const Route = createFileRoute("/_authenticated/negocio")({
 });
 
 function Negocio() {
-  return <Financas initialTab="negocio" />;
+  return <Page title="Negócio" subtitle="Vendas e recebimentos"><BusinessTab /></Page>;
 }
